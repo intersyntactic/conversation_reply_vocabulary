@@ -1,0 +1,20 @@
+# Changelog
+
+## 0.1.0
+
+- `ReplyEndpoint`, `RepliesUnderWebAddress`, `RepliesInSlackConversation`,
+  `SlackChannelId`, `encodeReplyEndpoint` and `decodeReplyEndpoint` moved
+  from `is_docking_station_api` 0.5.0, so a package that needs where a
+  reply goes, such as `is_effects`, doesn't depend on the docking station.
+  The JSON they write is unchanged, byte for byte.
+- `SlackThreadTimestamp` is now `SlackMessageTimestamp`: a Slack `ts`
+  names any message, and a thread is named by its root message's. The
+  field on `RepliesInSlackConversation` is still `thread`, and its JSON
+  key is still `"thread"`.
+- New: `PostedMessage`, the message a reply posted, with
+  `PostedUnderWebAddress` (an `AddressPrefix` and a
+  `ServerAssignedMessageId`) and `PostedInSlackConversation` (a
+  `SlackChannelId` and a `SlackMessageTimestamp`), each made by
+  `answering(endpoint, id)` so its conversation is the endpoint's, and
+  `encodePostedMessage` / `decodePostedMessage`, as strict as the
+  endpoint pair.
