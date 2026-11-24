@@ -11,10 +11,14 @@ final class ReplyText {
   /// The text, exactly as given.
   final String value;
 
-  /// [s] as reply text, untrimmed; null when it is blank. Blank means what
-  /// `String.trim` strips, so text of zero-width characters alone is not
-  /// blank: it is something to send, not a promise of visible text.
-  static ReplyText? parse(String s) => s.trim().isEmpty ? null : ReplyText._(s);
+  /// [s] as reply text, exactly as given; null when it is blank. Blank
+  /// means whitespace or Unicode format characters (category Cf, such as
+  /// U+200B) only. That is not "nothing visible": U+3164 and U+2800 render
+  /// as nothing but are letters and symbols, so they are text.
+  static ReplyText? parse(String s) =>
+      _blank.hasMatch(s) ? null : ReplyText._(s);
+
+  static final _blank = RegExp(r'^[\s\p{Cf}]*$', unicode: true);
 
   @override
   bool operator ==(Object other) => other is ReplyText && other.value == value;
