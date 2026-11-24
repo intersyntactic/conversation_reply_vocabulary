@@ -17,10 +17,16 @@ sealed class PostedMessage {
 }
 
 /// A message posted under [prefix], the conversation's web address, which
-/// that web address's server named [id]. The posted message of a reply to
-/// a `RepliesUnderWebAddress`.
+/// that web address's server named [id]. Made only by [answering] or
+/// [decodePostedMessage], so its conversation is the endpoint's.
 final class PostedUnderWebAddress extends PostedMessage {
-  const PostedUnderWebAddress({required this.prefix, required this.id});
+  const PostedUnderWebAddress._(this.prefix, this.id);
+
+  /// The message a reply to [to] posted, which the server named [id].
+  PostedUnderWebAddress.answering(
+    RepliesUnderWebAddress to,
+    ServerAssignedMessageId id,
+  ) : this._(to.prefix, id);
 
   final AddressPrefix prefix;
 
@@ -39,14 +45,17 @@ final class PostedUnderWebAddress extends PostedMessage {
   String toString() => 'PostedUnderWebAddress($prefix, $id)';
 }
 
-/// A message posted in Slack's [channel] that Slack named [timestamp]. The
-/// posted message of a reply to a `RepliesInSlackConversation`; a later
-/// reply can go in the thread it names.
+/// A message posted in Slack's [channel] that Slack named [timestamp]; a
+/// later reply can go in the thread it names. Made only by [answering] or
+/// [decodePostedMessage], so its channel is the endpoint's.
 final class PostedInSlackConversation extends PostedMessage {
-  const PostedInSlackConversation({
-    required this.channel,
-    required this.timestamp,
-  });
+  const PostedInSlackConversation._(this.channel, this.timestamp);
+
+  /// The message a reply to [to] posted, which Slack named [timestamp].
+  PostedInSlackConversation.answering(
+    RepliesInSlackConversation to,
+    SlackMessageTimestamp timestamp,
+  ) : this._(to.channel, timestamp);
 
   final SlackChannelId channel;
 
@@ -143,7 +152,7 @@ PostedMessage decodePostedMessage(Object? json, String field) {
         _ => null,
       };
       if (id == null) bad('`id` is not a message id');
-      return PostedUnderWebAddress(prefix: prefix, id: id);
+      return PostedUnderWebAddress._(prefix, id);
     case ConversationKind.inSlackConversation:
       only(const {'case', 'channel', 'timestamp'});
       final channel = switch (json['channel']) {
@@ -158,6 +167,6 @@ PostedMessage decodePostedMessage(Object? json, String field) {
       if (timestamp == null) {
         bad('`timestamp` is not a Slack message timestamp');
       }
-      return PostedInSlackConversation(channel: channel, timestamp: timestamp);
+      return PostedInSlackConversation._(channel, timestamp);
   }
 }

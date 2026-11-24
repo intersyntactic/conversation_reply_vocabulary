@@ -11,7 +11,9 @@ depends on nothing but `dart:core` and `is_web_address_vocabulary`.
   - `RepliesInSlackConversation`: Slack's `Origin`, a `SlackChannelId` and
     the thread's `SlackMessageTimestamp`, null only for a direct message.
 - `PostedMessage`: the message a reply posted, sealed, with one case for
-  each `ReplyEndpoint` case.
+  each `ReplyEndpoint` case. Each case is made only by `answering`, which
+  takes the endpoint it answers and its conversation from it, or by
+  `decodePostedMessage`.
   - `PostedUnderWebAddress`: the conversation's `AddressPrefix` and the
     `ServerAssignedMessageId` its server gave the message.
   - `PostedInSlackConversation`: the `SlackChannelId` and the posted

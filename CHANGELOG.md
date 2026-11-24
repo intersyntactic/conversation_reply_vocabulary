@@ -14,6 +14,7 @@
 - New: `PostedMessage`, the message a reply posted, with
   `PostedUnderWebAddress` (an `AddressPrefix` and a
   `ServerAssignedMessageId`) and `PostedInSlackConversation` (a
-  `SlackChannelId` and a `SlackMessageTimestamp`), and
+  `SlackChannelId` and a `SlackMessageTimestamp`), each made by
+  `answering(endpoint, id)` so its conversation is the endpoint's, and
   `encodePostedMessage` / `decodePostedMessage`, as strict as the
   endpoint pair.

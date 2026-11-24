@@ -8,20 +8,38 @@ import 'package:is_web_address_vocabulary/is_web_address_vocabulary.dart'
     show AddressPrefix, Origin, PathPrefix;
 import 'package:test/test.dart';
 
-final _teams = PostedUnderWebAddress(
-  prefix: AddressPrefix.of(
+final _teamsEndpoint = RepliesUnderWebAddress(
+  AddressPrefix.of(
     Origin.parse('https://smba.trafficmanager.net')!,
     PathPrefix.parse('/amer/v3/conversations/19:x/activities/')!,
   ),
-  id: ServerAssignedMessageId.parse('1:1aBcD2eFgH')!,
 );
 
-final _slack = PostedInSlackConversation(
+final _slackEndpoint = RepliesInSlackConversation(
+  origin: Origin.parse('https://slack.com')!,
   channel: SlackChannelId.parse('C0123ABC')!,
-  timestamp: SlackMessageTimestamp.parse('1700000000.000200')!,
+  thread: SlackMessageTimestamp.parse('1700000000.000100'),
+);
+
+final _teams = PostedUnderWebAddress.answering(
+  _teamsEndpoint,
+  ServerAssignedMessageId.parse('1:1aBcD2eFgH')!,
+);
+
+final _slack = PostedInSlackConversation.answering(
+  _slackEndpoint,
+  SlackMessageTimestamp.parse('1700000000.000200')!,
 );
 
 void main() {
+  test(
+    'a posted message is in the conversation of the endpoint it answers',
+    () {
+      expect(_teams.prefix, _teamsEndpoint.prefix);
+      expect(_slack.channel, _slackEndpoint.channel);
+    },
+  );
+
   test('each case reads back as itself', () {
     for (final message in <PostedMessage>[_teams, _slack]) {
       final json = encodePostedMessage(message);
