@@ -116,7 +116,7 @@ void main() {
     for (final s in ['1', '1:1aBcD2eFgH', 'f:abc-123_x/y=']) {
       expect(ServerAssignedMessageId.parse(s)?.value, s, reason: s);
     }
-    for (final s in ['', ' ', 'a b', 'ab\n', '\tab', 'a b']) {
+    for (final s in ['', ' ', 'a b', 'ab\n', '\tab', 'a\u{a0}b']) {
       expect(ServerAssignedMessageId.parse(s), isNull, reason: s);
     }
   });

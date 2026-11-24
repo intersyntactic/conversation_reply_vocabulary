@@ -19,6 +19,9 @@ depends on nothing but `dart:core` and `is_web_address_vocabulary`.
   - `PostedInSlackConversation`: the `SlackChannelId` and the posted
     message's `SlackMessageTimestamp`, which a later reply can thread
     under.
+- `ReplyText`: what a reply says, never only whitespace or Unicode format
+  characters (such as U+200B), kept exactly as given. It has no length limit; a driver splits a long text.
+  Its JSON is a plain string.
 - `SlackChannelId` (`C…`, `D…` or `G…`), `SlackMessageTimestamp`
   (`1700000000.000100`) and `ServerAssignedMessageId` (non-empty, no
   whitespace) are made only by `parse`, which returns null for anything

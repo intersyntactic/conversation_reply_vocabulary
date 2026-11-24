@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.1
+
+- New: `ReplyText`, a reply's text, made only by `parse`, which returns
+  null for text of only whitespace or Unicode format characters (Cf, such
+  as U+200B) and otherwise keeps it exactly, untrimmed. It has no length limit. With `encodeReplyText` /
+  `decodeReplyText`, a plain JSON string.
+
 ## 0.1.0
 
 - `ReplyEndpoint`, `RepliesUnderWebAddress`, `RepliesInSlackConversation`,
