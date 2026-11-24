@@ -11,8 +11,9 @@ final class ReplyText {
   /// The text, exactly as given.
   final String value;
 
-  /// [s] as reply text, untrimmed; null when it is empty or only
-  /// whitespace, as `String.trim` defines whitespace.
+  /// [s] as reply text, untrimmed; null when it is blank. Blank means what
+  /// `String.trim` strips, so text of zero-width characters alone is not
+  /// blank: it is something to send, not a promise of visible text.
   static ReplyText? parse(String s) => s.trim().isEmpty ? null : ReplyText._(s);
 
   @override
