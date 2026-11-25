@@ -2,7 +2,7 @@
 // strictly, since both leave the machine.
 import 'dart:convert';
 
-import 'package:is_reply_vocabulary/is_reply_vocabulary.dart';
+import 'package:is_conversation_reply_vocabulary/is_conversation_reply_vocabulary.dart';
 import 'package:test/test.dart';
 
 final _text = ReplyText.parse('Done: the draft is in the folder.')!;

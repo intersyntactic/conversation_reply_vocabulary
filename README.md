@@ -1,9 +1,17 @@
-# is_reply_vocabulary
+# is_conversation_reply_vocabulary
 
-Where a reply goes and the message it posted, as values that name exactly
-one conversation, with their JSON. It holds types and does nothing, and
-depends on nothing but `dart:core`, `is_web_address_vocabulary` and
-`checked_json`.
+A reply into a conversation: a message posted back into the external chat
+conversation an event came from, such as a Slack thread or a Teams chat.
+Not an HTTP response, and not a model's output until it is sent there.
+
+These are where such a reply goes, what it says and the message it
+posted, as values that name exactly one conversation, with their JSON. It
+holds types and does nothing, and depends on nothing but `dart:core`,
+`is_web_address_vocabulary` and `checked_json`.
+
+It was published as `is_reply_vocabulary` up to 0.2.1, which is
+discontinued. The two names declare different types, so a package moves
+its dependency and every import to this name in one change.
 
 - `ReplyEndpoint`: where replies to an event go, sealed, one case for each
   way an external system takes replies.
@@ -29,8 +37,8 @@ depends on nothing but `dart:core`, `is_web_address_vocabulary` and
     message's `SlackMessageTimestamp`, which a later reply can thread
     under.
 - `ReplyText`: what a reply says, never only whitespace or Unicode format
-  characters (such as U+200B), kept exactly as given. It has no length limit; a driver splits a long text.
-  Its JSON is a plain string.
+  characters (such as U+200B), kept exactly as given. It has no length
+  limit; a driver splits a long text. Its JSON is a plain string.
 - `SlackChannelId` (`C…`, `D…` or `G…`), `SlackMessageTimestamp`
   (`1700000000.000100`) and `ServerAssignedMessageId` (non-empty, no
   whitespace) are made only by `parse`, which returns null for anything
@@ -43,6 +51,7 @@ missing, extra or malformed. Both name their cases the same way:
     {"case":"in-slack-conversation","origin":"https://slack.com","channel":"C0123ABC","thread":"1700000000.000100"}
     {"case":"in-slack-conversation","channel":"C0123ABC","timestamp":"1700000000.000200"}
 
-`is_docking_station_api` re-exports all of this from 0.6.0, so its
-`ReplyEndpoint` and this one are the same type. A package that uses both
-must require `is_docking_station_api: ^0.6.0`; 0.5.0 declares its own.
+`is_docking_station_api` re-exports `ReplyEndpoint` and its JSON from
+0.6.0, so its `ReplyEndpoint` and this one are the same type. A package
+that uses both must require `is_docking_station_api: ^0.6.0`; 0.5.0
+declares its own.

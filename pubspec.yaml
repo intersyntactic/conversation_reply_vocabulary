@@ -1,10 +1,10 @@
-name: is_reply_vocabulary
+name: is_conversation_reply_vocabulary
 description: >-
-  Where a reply goes and the message it posted, as values that name exactly
-  one conversation: a web address or a Slack channel and thread, with their
-  JSON.
-version: 0.2.1
-repository: https://github.com/intersyntactic/reply_vocabulary
+  A message posted back into the external chat conversation an event came
+  from: where it goes (a web address, or a Slack channel and thread), what
+  it says and the id it was posted under, with their JSON.
+version: 0.1.0
+repository: https://github.com/intersyntactic/conversation_reply_vocabulary
 
 environment:
   sdk: ^3.13.0

@@ -1,6 +1,19 @@
 # Changelog
 
-## 0.2.1
+## 0.1.0
+
+- `is_reply_vocabulary` 0.2.1 under the name
+  `is_conversation_reply_vocabulary`, unchanged: the same types,
+  functions and JSON. "Reply" alone could be read as an HTTP
+  response or a model's output; this package is about a message posted
+  back into an external chat conversation. `is_reply_vocabulary` is
+  discontinued at 0.2.1 and nothing re-exports it, so its types and these
+  are different types: a package moves its dependency and every import in
+  one change.
+
+The entries below are `is_reply_vocabulary`'s.
+
+## is_reply_vocabulary 0.2.1
 
 - New: `ReplyEndpoint.admitsAddress(to, path)`, whether a request goes
   to an address the endpoint's replies are sent to, as one rule for
@@ -18,7 +31,7 @@
   `encodeReplyContent` / `decodeReplyContent`.
 - No JSON changes.
 
-## 0.2.0
+## is_reply_vocabulary 0.2.0
 
 - Breaking: `encodeReplyEndpoint` and `encodePostedMessage` return a
   `checked_json` `JsonObject` instead of a `Map<String, Object?>`. The
@@ -27,20 +40,20 @@
   or list needs no change. One that read it by key, spread it or added to
   it reads it through a reader, `raw`, `withFields` or `without` instead.
 
-## 0.1.2
+## is_reply_vocabulary 0.1.2
 
 - `decodeReplyEndpoint` and `decodePostedMessage` read their object
   through `checked_json`'s `JsonObject` instead of a map read by key.
   They take, accept, refuse and say the same things as before.
 
-## 0.1.1
+## is_reply_vocabulary 0.1.1
 
 - New: `ReplyText`, a reply's text, made only by `parse`, which returns
   null for text of only whitespace or Unicode format characters (Cf, such
   as U+200B) and otherwise keeps it exactly, untrimmed. It has no length limit. With `encodeReplyText` /
   `decodeReplyText`, a plain JSON string.
 
-## 0.1.0
+## is_reply_vocabulary 0.1.0
 
 - `ReplyEndpoint`, `RepliesUnderWebAddress`, `RepliesInSlackConversation`,
   `SlackChannelId`, `encodeReplyEndpoint` and `decodeReplyEndpoint` moved
