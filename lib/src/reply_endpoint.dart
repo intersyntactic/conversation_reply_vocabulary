@@ -14,6 +14,7 @@ import 'package:is_web_address_vocabulary/is_web_address_vocabulary.dart'
         encodeOrigin;
 
 import 'conversation_kind.dart';
+import 'strict_object_reader.dart';
 
 /// Where replies to an event go: [RepliesUnderWebAddress] or
 /// [RepliesInSlackConversation].
@@ -154,46 +155,30 @@ Map<String, Object?> encodeReplyEndpoint(
 /// [FormatException] naming [field] for anything it doesn't write: an
 /// unknown case, a field missing, extra or malformed.
 ReplyEndpoint decodeReplyEndpoint(Object? json, String field) {
-  if (json is! Map<String, Object?>) {
-    throw FormatException('$field: not an object');
-  }
-  Never bad(String why) => throw FormatException('$field: $why');
-  void only(Set<String> keys) {
-    for (final key in json.keys) {
-      if (!keys.contains(key)) bad('`$key` is not expected here');
-    }
-  }
-
-  final kind = ConversationKind.parse(json['case']);
-  if (kind == null) bad('`case` is not a reply endpoint: ${json['case']}');
-  switch (kind) {
+  final object = StrictObjectReader.of(json, field);
+  switch (object.kind('a reply endpoint')) {
     case ConversationKind.underWebAddress:
-      only(const {'case', 'addressPrefix'});
+      object.allowOnly(const {'case', 'addressPrefix'});
       return RepliesUnderWebAddress(
-        decodeAddressPrefix(json['addressPrefix'], '$field.addressPrefix'),
+        decodeAddressPrefix(
+          object.raw('addressPrefix'),
+          object.nested('addressPrefix'),
+        ),
       );
     case ConversationKind.inSlackConversation:
-      only(const {'case', 'origin', 'channel', 'thread'});
-      final origin = decodeOrigin(json['origin'], '$field.origin');
-      final channel = switch (json['channel']) {
-        final String s => SlackChannelId.parse(s),
-        _ => null,
-      };
-      if (channel == null) bad('`channel` is not a Slack channel id');
-      final SlackMessageTimestamp? thread;
-      if (json.containsKey('thread')) {
-        thread = switch (json['thread']) {
-          final String s => SlackMessageTimestamp.parse(s),
-          _ => null,
-        };
-        if (thread == null) bad('`thread` is not a Slack thread timestamp');
-      } else {
-        thread = null;
-      }
+      object.allowOnly(const {'case', 'origin', 'channel', 'thread'});
       return RepliesInSlackConversation(
-        origin: origin,
-        channel: channel,
-        thread: thread,
+        origin: decodeOrigin(object.raw('origin'), object.nested('origin')),
+        channel: object.parsed(
+          'channel',
+          SlackChannelId.parse,
+          'a Slack channel id',
+        ),
+        thread: object.parsedIfPresent(
+          'thread',
+          SlackMessageTimestamp.parse,
+          'a Slack thread timestamp',
+        ),
       );
   }
 }

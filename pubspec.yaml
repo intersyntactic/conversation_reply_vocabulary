@@ -3,13 +3,14 @@ description: >-
   Where a reply goes and the message it posted, as values that name exactly
   one conversation: a web address or a Slack channel and thread, with their
   JSON.
-version: 0.1.1
+version: 0.1.2
 repository: https://github.com/intersyntactic/reply_vocabulary
 
 environment:
   sdk: ^3.13.0
 
 dependencies:
+  checked_json: ^0.2.1
   is_web_address_vocabulary: ^0.1.2
 
 dev_dependencies:

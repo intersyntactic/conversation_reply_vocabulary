@@ -2,7 +2,8 @@
 
 Where a reply goes and the message it posted, as values that name exactly
 one conversation, with their JSON. It holds types and does nothing, and
-depends on nothing but `dart:core` and `is_web_address_vocabulary`.
+depends on nothing but `dart:core`, `is_web_address_vocabulary` and
+`checked_json`.
 
 - `ReplyEndpoint`: where replies to an event go, sealed, one case for each
   way an external system takes replies.

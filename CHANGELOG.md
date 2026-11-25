@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.2
+
+- `decodeReplyEndpoint` and `decodePostedMessage` read their object
+  through `checked_json`'s `JsonObject` instead of a map read by key.
+  They take, accept, refuse and say the same things as before.
+
 ## 0.1.1
 
 - New: `ReplyText`, a reply's text, made only by `parse`, which returns
