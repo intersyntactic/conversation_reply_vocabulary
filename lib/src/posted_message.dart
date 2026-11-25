@@ -9,6 +9,7 @@ import 'package:is_web_address_vocabulary/is_web_address_vocabulary.dart'
 
 import 'conversation_kind.dart';
 import 'reply_endpoint.dart';
+import 'strict_object_reader.dart';
 
 /// A message a reply posted: [PostedUnderWebAddress] or
 /// [PostedInSlackConversation].
@@ -128,45 +129,26 @@ Map<String, Object?> encodePostedMessage(PostedMessage message) =>
 /// [FormatException] naming [field] for anything it doesn't write: an
 /// unknown case, a field missing, extra or malformed.
 PostedMessage decodePostedMessage(Object? json, String field) {
-  if (json is! Map<String, Object?>) {
-    throw FormatException('$field: not an object');
-  }
-  Never bad(String why) => throw FormatException('$field: $why');
-  void only(Set<String> keys) {
-    for (final key in json.keys) {
-      if (!keys.contains(key)) bad('`$key` is not expected here');
-    }
-  }
-
-  final kind = ConversationKind.parse(json['case']);
-  if (kind == null) bad('`case` is not a posted message: ${json['case']}');
-  switch (kind) {
+  final object = StrictObjectReader.of(json, field);
+  switch (object.kind('a posted message')) {
     case ConversationKind.underWebAddress:
-      only(const {'case', 'addressPrefix', 'id'});
-      final prefix = decodeAddressPrefix(
-        json['addressPrefix'],
-        '$field.addressPrefix',
+      object.allowOnly(const {'case', 'addressPrefix', 'id'});
+      return PostedUnderWebAddress._(
+        decodeAddressPrefix(
+          object.raw('addressPrefix'),
+          object.nested('addressPrefix'),
+        ),
+        object.parsed('id', ServerAssignedMessageId.parse, 'a message id'),
       );
-      final id = switch (json['id']) {
-        final String s => ServerAssignedMessageId.parse(s),
-        _ => null,
-      };
-      if (id == null) bad('`id` is not a message id');
-      return PostedUnderWebAddress._(prefix, id);
     case ConversationKind.inSlackConversation:
-      only(const {'case', 'channel', 'timestamp'});
-      final channel = switch (json['channel']) {
-        final String s => SlackChannelId.parse(s),
-        _ => null,
-      };
-      if (channel == null) bad('`channel` is not a Slack channel id');
-      final timestamp = switch (json['timestamp']) {
-        final String s => SlackMessageTimestamp.parse(s),
-        _ => null,
-      };
-      if (timestamp == null) {
-        bad('`timestamp` is not a Slack message timestamp');
-      }
-      return PostedInSlackConversation._(channel, timestamp);
+      object.allowOnly(const {'case', 'channel', 'timestamp'});
+      return PostedInSlackConversation._(
+        object.parsed('channel', SlackChannelId.parse, 'a Slack channel id'),
+        object.parsed(
+          'timestamp',
+          SlackMessageTimestamp.parse,
+          'a Slack message timestamp',
+        ),
+      );
   }
 }
