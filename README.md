@@ -11,6 +11,14 @@ depends on nothing but `dart:core`, `is_web_address_vocabulary` and
     conversation, as Teams' Bot Connector takes replies.
   - `RepliesInSlackConversation`: Slack's `Origin`, a `SlackChannelId` and
     the thread's `SlackMessageTimestamp`, null only for a direct message.
+  - `admitsAddress(to, path)` says whether a request goes to an address
+    the endpoint's replies are sent to: under the prefix for a web
+    address, exactly `/api/chat.postMessage` on its origin for Slack. It
+    checks the address, never the conversation.
+    `redirectsStayUnder` bounds where a redirect of an admitted request
+    may go.
+- `ReplyContent`: a reply's `ReplyText` and an optional footer, such as
+  a turn's usage. Its JSON is `{"text": …, "footer": …?}`.
 - `PostedMessage`: the message a reply posted, sealed, with one case for
   each `ReplyEndpoint` case. Each case is made only by `answering`, which
   takes the endpoint it answers and its conversation from it, or by

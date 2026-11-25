@@ -9,6 +9,8 @@ import 'package:is_web_address_vocabulary/is_web_address_vocabulary.dart'
     show
         AddressPrefix,
         Origin,
+        PathPrefix,
+        WebPath,
         decodeAddressPrefix,
         decodeOrigin,
         encodeAddressPrefix,
@@ -21,6 +23,20 @@ import 'strict_object_reader.dart';
 /// [RepliesInSlackConversation].
 sealed class ReplyEndpoint {
   const ReplyEndpoint();
+
+  /// Whether a request to [path] on [to] is to an address this endpoint's
+  /// replies are sent to. It checks the address only, never the
+  /// conversation: for a Slack endpoint the address is the same for every
+  /// conversation, so this never confines a reply to its conversation. The
+  /// channel and thread come from the endpoint itself, in the request it
+  /// draws.
+  bool admitsAddress(Origin to, WebPath path);
+
+  /// The path prefix a redirect of an admitted request must stay under.
+  /// It bounds only where the server may redirect a request
+  /// [admitsAddress] already let through, and is never itself what a reply
+  /// may reach.
+  PathPrefix get redirectsStayUnder;
 }
 
 /// Replies go under [prefix], a web address that names the conversation, as
@@ -37,6 +53,13 @@ final class RepliesUnderWebAddress extends ReplyEndpoint {
 
   @override
   int get hashCode => prefix.hashCode;
+
+  /// A request under [prefix].
+  @override
+  bool admitsAddress(Origin to, WebPath path) => prefix.covers(to, path);
+
+  @override
+  PathPrefix get redirectsStayUnder => prefix.pathPrefix;
 
   @override
   String toString() => 'RepliesUnderWebAddress($prefix)';
@@ -74,6 +97,23 @@ final class RepliesInSlackConversation extends ReplyEndpoint {
 
   @override
   int get hashCode => Object.hash(origin, channel, thread);
+
+  /// The one path a Slack reply is sent to: posting a message. Every other
+  /// method under the bot's token, such as `chat.delete`, is refused.
+  static final postMessagePath = WebPath.parse('/api/chat.postMessage')!;
+
+  /// A request to exactly [postMessagePath] on [origin], with no query.
+  @override
+  bool admitsAddress(Origin to, WebPath path) =>
+      to == origin && path == postMessagePath;
+
+  /// `/api/`, the narrowest prefix covering [postMessagePath]. A redirect
+  /// from Slack could in principle move a POST to another method under
+  /// `/api/`; that is the server's choice, never the reply's.
+  @override
+  PathPrefix get redirectsStayUnder => _api;
+
+  static final _api = PathPrefix.parse('/api/')!;
 
   @override
   String toString() => 'RepliesInSlackConversation($origin, $channel, $thread)';
