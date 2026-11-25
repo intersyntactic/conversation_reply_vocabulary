@@ -4,6 +4,7 @@
 /// named the matching way.
 library;
 
+import 'package:checked_json/checked_json.dart' show JsonObject;
 import 'package:is_web_address_vocabulary/is_web_address_vocabulary.dart'
     show AddressPrefix, decodeAddressPrefix, encodeAddressPrefix;
 
@@ -111,8 +112,8 @@ final class ServerAssignedMessageId {
 /// Each case is named as the `ReplyEndpoint` case it answers is.
 /// `<address prefix>` is as is_web_address_vocabulary's
 /// `encodeAddressPrefix` writes it.
-Map<String, Object?> encodePostedMessage(PostedMessage message) =>
-    switch (message) {
+JsonObject encodePostedMessage(PostedMessage message) =>
+    JsonObject.of(switch (message) {
       PostedUnderWebAddress(:final prefix, :final id) => {
         'case': ConversationKind.underWebAddress.wire,
         'addressPrefix': encodeAddressPrefix(prefix),
@@ -123,7 +124,7 @@ Map<String, Object?> encodePostedMessage(PostedMessage message) =>
         'channel': channel.value,
         'timestamp': timestamp.value,
       },
-    };
+    });
 
 /// [json] read back as the message [encodePostedMessage] wrote. A
 /// [FormatException] naming [field] for anything it doesn't write: an
