@@ -2,7 +2,7 @@
 // airlock approves and the logbook records is what is sent.
 import 'dart:convert';
 
-import 'package:is_reply_vocabulary/is_reply_vocabulary.dart';
+import 'package:is_conversation_reply_vocabulary/is_conversation_reply_vocabulary.dart';
 import 'package:test/test.dart';
 
 void main() {

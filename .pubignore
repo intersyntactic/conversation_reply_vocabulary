@@ -1,0 +1,8 @@
+# Replaces .gitignore when publishing, so it repeats its entries.
+.dart_tool/
+.packages
+build/
+pubspec.lock
+
+# The old name's package, published on its own.
+is_reply_vocabulary/
