@@ -6,8 +6,10 @@
   `is_conversation_reply_vocabulary`, unchanged: the same types,
   functions and JSON. "Reply" alone could be read as an HTTP
   response or a model's output; this package is about a message posted
-  back into an external chat conversation. `is_reply_vocabulary` 0.2.2
-  re-exports this package, so code on either name gets the same types.
+  back into an external chat conversation. `is_reply_vocabulary` is
+  discontinued at 0.2.1 and nothing re-exports it, so its types and these
+  are different types: a package moves its dependency and every import in
+  one change.
 
 The entries below are `is_reply_vocabulary`'s.
 

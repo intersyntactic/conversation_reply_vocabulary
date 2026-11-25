@@ -9,8 +9,9 @@ posted, as values that name exactly one conversation, with their JSON. It
 holds types and does nothing, and depends on nothing but `dart:core`,
 `is_web_address_vocabulary` and `checked_json`.
 
-It was published as `is_reply_vocabulary` up to 0.2.1. That package's
-0.2.2 re-exports this one, so both names give the same types.
+It was published as `is_reply_vocabulary` up to 0.2.1, which is
+discontinued. The two names declare different types, so a package moves
+its dependency and every import to this name in one change.
 
 - `ReplyEndpoint`: where replies to an event go, sealed, one case for each
   way an external system takes replies.
