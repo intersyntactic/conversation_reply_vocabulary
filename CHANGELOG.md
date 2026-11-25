@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.2.1
+
+- New: `ReplyEndpoint.admitsAddress(to, path)`, whether a request goes
+  to an address the endpoint's replies are sent to, as one rule for
+  every case. `RepliesUnderWebAddress` admits what its prefix covers.
+  `RepliesInSlackConversation` admits exactly
+  `RepliesInSlackConversation.postMessagePath` (`/api/chat.postMessage`)
+  on its own origin, so no other Slack method, such as `chat.delete`, is
+  reachable. It checks the address only: a Slack address is the same for
+  every conversation.
+- New: `ReplyEndpoint.redirectsStayUnder`, the path prefix a redirect of
+  an admitted request must stay under: the prefix for a web address,
+  `/api/` for Slack. It bounds redirects only, never what a reply may
+  reach.
+- New: `ReplyContent`, a reply's `ReplyText` and an optional footer, with
+  `encodeReplyContent` / `decodeReplyContent`.
+- No JSON changes.
+
 ## 0.2.0
 
 - Breaking: `encodeReplyEndpoint` and `encodePostedMessage` return a
