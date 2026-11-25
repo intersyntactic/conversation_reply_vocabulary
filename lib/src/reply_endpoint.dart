@@ -4,6 +4,7 @@
 /// request's body for others.
 library;
 
+import 'package:checked_json/checked_json.dart' show JsonObject;
 import 'package:is_web_address_vocabulary/is_web_address_vocabulary.dart'
     show
         AddressPrefix,
@@ -136,9 +137,9 @@ final class SlackMessageTimestamp {
 ///
 /// `<address prefix>` and `<origin>` are as is_web_address_vocabulary's
 /// `encodeAddressPrefix` and `encodeOrigin` write them.
-Map<String, Object?> encodeReplyEndpoint(
+JsonObject encodeReplyEndpoint(
   ReplyEndpoint endpoint,
-) => switch (endpoint) {
+) => JsonObject.of(switch (endpoint) {
   RepliesUnderWebAddress(:final prefix) => {
     'case': ConversationKind.underWebAddress.wire,
     'addressPrefix': encodeAddressPrefix(prefix),
@@ -149,7 +150,7 @@ Map<String, Object?> encodeReplyEndpoint(
     'channel': channel.value,
     'thread': ?thread?.value,
   },
-};
+});
 
 /// [json] read back as the endpoint [encodeReplyEndpoint] wrote. A
 /// [FormatException] naming [field] for anything it doesn't write: an

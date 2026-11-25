@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.0
+
+- Breaking: `encodeReplyEndpoint` and `encodePostedMessage` return a
+  `checked_json` `JsonObject` instead of a `Map<String, Object?>`. The
+  JSON they write is unchanged, byte for byte; `jsonEncode` writes a
+  `JsonObject` as it is. A caller that put the result inside another map
+  or list needs no change. One that read it by key, spread it or added to
+  it reads it through a reader, `raw`, `withFields` or `without` instead.
+
 ## 0.1.2
 
 - `decodeReplyEndpoint` and `decodePostedMessage` read their object
