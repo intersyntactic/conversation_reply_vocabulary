@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.1
+
+- New library `package:is_conversation_vocabulary/reply_endpoint.dart`:
+  `ReplyEndpoint` and its JSON alone, for code that must not load a
+  decoder of what strangers sent. It reaches none of `UserSaid`, `Quote`
+  or `WhatChanged`; a test pins exactly which files and packages it
+  reaches.
+
 ## 0.1.0
 
 - `is_conversation_shapes` and `is_conversation_reply_vocabulary` as one

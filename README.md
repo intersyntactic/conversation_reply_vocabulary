@@ -80,6 +80,11 @@ top-level shapes, for a check that no two packages' shapes collide.
   whitespace) are made only by `parse`, which returns null for anything
   else.
 
+`package:is_conversation_vocabulary/reply_endpoint.dart` exports
+`ReplyEndpoint` and its JSON alone, for code that must not load a decoder
+of what strangers sent: it reaches none of `UserSaid`, `Quote` or
+`WhatChanged`.
+
 Each sealed reply type has an `encodeX` / `decodeX` pair. A decode throws
 a `FormatException` naming the field for an unknown case or a field that
 is missing, extra or malformed. Both name their cases the same way:
