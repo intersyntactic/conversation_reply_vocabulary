@@ -27,9 +27,44 @@ Iterable<StringLiteral> directiveUris(String source) sync* {
   }
 }
 
-/// A vocabulary may depend only on other vocabularies and `checked_json`.
+/// A vocabulary may depend only on other vocabularies and `checked_json`,
+/// and here on `is_shapes` for [_fromShapes] alone: an actor's id is a
+/// word no one program owns, and `is_shapes` depends only on
+/// `is_content_id`.
 bool _allowedPackage(String name) =>
-    name.endsWith('_vocabulary') || name == 'checked_json';
+    name.endsWith('_vocabulary') ||
+    name == 'checked_json' ||
+    name == _shapesPackage;
+
+const _shapesPackage = 'is_shapes';
+
+/// The only names this package takes from [_shapesPackage].
+const _fromShapes = {'ActorId'};
+
+/// Every directive in [source] naming [_shapesPackage] that takes more than
+/// [_fromShapes], or isn't narrowed by a `show` at all.
+Iterable<String> _wideShapesImports(String source) sync* {
+  final unit = parseString(content: source, throwIfDiagnostics: false).unit;
+  for (final directive in unit.directives.whereType<NamespaceDirective>()) {
+    final target = directive.uri.stringValue;
+    if (target == null) continue;
+    final uri = Uri.parse(target);
+    if (uri.scheme != 'package' || uri.pathSegments.first != _shapesPackage) {
+      continue;
+    }
+    final shown = {
+      for (final combinator in directive.combinators)
+        if (combinator is ShowCombinator)
+          for (final name in combinator.shownNames) name.name,
+    };
+    final narrowed =
+        directive is ImportDirective &&
+        directive.combinators.every((c) => c is ShowCombinator) &&
+        shown.isNotEmpty &&
+        _fromShapes.containsAll(shown);
+    if (!narrowed) yield directive.toSource();
+  }
+}
 
 bool _allowed(String target) {
   final uri = Uri.parse(target);
@@ -60,6 +95,49 @@ void main() {
       violations,
       isEmpty,
       reason: 'a vocabulary holds types and does nothing',
+    );
+  });
+
+  test('is_shapes is imported for ActorId alone, and never re-exported', () {
+    final violations = [
+      for (final file in Directory(
+        'lib',
+      ).listSync(recursive: true).whereType<File>())
+        if (file.path.endsWith('.dart'))
+          for (final wide in _wideShapesImports(file.readAsStringSync()))
+            '${file.path}: $wide',
+    ];
+    expect(violations, isEmpty);
+  });
+
+  test('a wide or re-exported is_shapes directive is caught', () {
+    expect(
+      _wideShapesImports("import 'package:is_shapes/is_shapes.dart';"),
+      hasLength(1),
+    );
+    expect(
+      _wideShapesImports(
+        "import 'package:is_shapes/is_shapes.dart' show ActorId, TurnId;",
+      ),
+      hasLength(1),
+    );
+    expect(
+      _wideShapesImports(
+        "import 'package:is_shapes/is_shapes.dart' hide TurnId;",
+      ),
+      hasLength(1),
+    );
+    expect(
+      _wideShapesImports(
+        "export 'package:is_shapes/is_shapes.dart' show ActorId;",
+      ),
+      hasLength(1),
+    );
+    expect(
+      _wideShapesImports(
+        "import 'package:is_shapes/is_shapes.dart' show ActorId;",
+      ),
+      isEmpty,
     );
   });
 }

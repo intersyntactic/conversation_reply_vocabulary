@@ -1,16 +1,17 @@
-name: is_conversation_reply_vocabulary
+name: is_conversation_vocabulary
 description: >-
-  A message posted back into the external chat conversation an event came
-  from: where it goes (a web address, or a Slack channel and thread), what
-  it says and the id it was posted under, with their JSON.
+  An external chat conversation, both ways: what a person said in it and
+  what became of that message, and a reply posted back into it (where it
+  goes, what it says, the id it was posted under), with their JSON.
 version: 0.1.0
-repository: https://github.com/intersyntactic/conversation_reply_vocabulary
+repository: https://github.com/intersyntactic/conversation_vocabulary
 
 environment:
   sdk: ^3.13.0
 
 dependencies:
-  checked_json: ^0.2.1
+  checked_json: ^0.3.0
+  is_shapes: ^0.6.0
   is_web_address_vocabulary: ^0.1.2
 
 dev_dependencies:

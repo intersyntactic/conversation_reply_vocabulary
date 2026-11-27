@@ -1,17 +1,53 @@
-# is_conversation_reply_vocabulary
+# is_conversation_vocabulary
 
-A reply into a conversation: a message posted back into the external chat
-conversation an event came from, such as a Slack thread or a Teams chat.
-Not an HTTP response, and not a model's output until it is sent there.
+An external chat conversation, such as a Slack thread or a Teams chat, in
+both directions: what a person said in it and what became of that message,
+and a reply posted back into it. A reply is not an HTTP response, and not
+a model's output until it is sent there.
 
-These are where such a reply goes, what it says and the message it
-posted, as values that name exactly one conversation, with their JSON. It
-holds types and does nothing, and depends on nothing but `dart:core`,
-`is_web_address_vocabulary` and `checked_json`.
+It holds types and does nothing. It depends on `checked_json`,
+`is_web_address_vocabulary` and, for `ActorId` alone, `is_shapes`. A shape
+file may import it: everything it imports is on import admission's pure
+list.
 
-It was published as `is_reply_vocabulary` up to 0.2.1, which is
-discontinued. The two names declare different types, so a package moves
-its dependency and every import to this name in one change.
+Its decoders read JSON that is already decoded. Decode wire text with
+`checked_json`'s `decodeJsonRefusingDuplicateKeysAndUnsafeIntegers`, not
+`jsonDecode`: `jsonDecode` keeps the last of two same-named keys, so a
+duplicate is gone before any decoder here could refuse it.
+
+It replaces two packages, and declares its own types, so a package moves
+its dependency and every import to this name in one change:
+- `is_conversation_shapes`, discontinued at 0.8.4. `UserSaid`, `Quote` and
+  `WhatChanged` moved here with their JSON unchanged. Its `ReplyText`
+  node, `ReplyChunk`, `UserSaidChanged` and `AgentName` did not move:
+  nothing built them.
+- `is_conversation_reply_vocabulary`, discontinued at 0.1.0, and before it
+  `is_reply_vocabulary`. Everything in it moved here unchanged.
+
+## What a person said
+
+- `UserSaid`: who said it (an `ActorId`), the message's `SourceMessageId`,
+  its text, and the `Quote` it carries, if any. The text may be empty, as
+  in a reply that is only a quote and an @-mention.
+- `Quote`: the quoted message's `SourceMessageId`, its author, and a
+  shortened copy of its text if the source showed one. The author is a
+  `QuotedAuthor`, sealed: `KnownAuthor` (an `ActorId`) or `UnknownAuthor`
+  (whatever display name the source showed, never an identity).
+- `WhatChanged`: what an earlier message became at its source, sealed:
+  `Edited` (the new text and quote, wholesale), `Deleted` or `Restored`.
+- `SourceMessageId`: a message's id in its source's own terms, made only
+  by `parse` (non-empty, no whitespace).
+
+These travel in a node's map form, `{"shape": "<class name>", ...fields}`,
+through `fromJson` and `toJson`. `fromJson` throws a `FormatException` for
+an unknown shape or a field that is missing, extra, of the wrong type or a
+malformed id. `UserSaid.shapeName` and `WhatChanged.shapeNames` name the
+top-level shapes, for a check that no two packages' shapes collide.
+
+    {"shape":"UserSaid","author":"teams:f6a2","source":"1234567890.654321","text":"","quotes":{"source":"1234567890.123456","author":{"shape":"KnownAuthor","actor":"agent:7f3a9c21"}}}
+    {"shape":"Edited","text":"actually, tomorrow"}
+
+## A reply
 
 - `ReplyEndpoint`: where replies to an event go, sealed, one case for each
   way an external system takes replies.
@@ -44,14 +80,9 @@ its dependency and every import to this name in one change.
   whitespace) are made only by `parse`, which returns null for anything
   else.
 
-Each sealed type has an `encodeX` / `decodeX` pair. A decode throws a
-`FormatException` naming the field for an unknown case or a field that is
-missing, extra or malformed. Both name their cases the same way:
+Each sealed reply type has an `encodeX` / `decodeX` pair. A decode throws
+a `FormatException` naming the field for an unknown case or a field that
+is missing, extra or malformed. Both name their cases the same way:
 
     {"case":"in-slack-conversation","origin":"https://slack.com","channel":"C0123ABC","thread":"1700000000.000100"}
     {"case":"in-slack-conversation","channel":"C0123ABC","timestamp":"1700000000.000200"}
-
-`is_docking_station_api` re-exports `ReplyEndpoint` and its JSON from
-0.6.0, so its `ReplyEndpoint` and this one are the same type. A package
-that uses both must require `is_docking_station_api: ^0.6.0`; 0.5.0
-declares its own.

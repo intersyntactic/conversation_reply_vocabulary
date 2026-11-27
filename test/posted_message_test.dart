@@ -3,7 +3,7 @@
 // guessed.
 import 'dart:convert';
 
-import 'package:is_conversation_reply_vocabulary/is_conversation_reply_vocabulary.dart';
+import 'package:is_conversation_vocabulary/is_conversation_vocabulary.dart';
 import 'package:is_web_address_vocabulary/is_web_address_vocabulary.dart'
     show AddressPrefix, Origin, PathPrefix;
 import 'package:test/test.dart';
