@@ -2,6 +2,25 @@
 
 ## 0.1.0
 
+- `is_conversation_shapes` and `is_conversation_reply_vocabulary` as one
+  package, `is_conversation_vocabulary`. Both held one conversation's
+  types, and each declared a `ReplyText`.
+- From `is_conversation_shapes` 0.8.3: `UserSaid`, `SourceMessageId`,
+  `Quote`, `QuotedAuthor` (`KnownAuthor`, `UnknownAuthor`) and
+  `WhatChanged` (`Edited`, `Deleted`, `Restored`), with the same
+  constructors, `fromJson`, `toJson`, `shapeName` and `shapeNames`, and
+  byte-identical JSON.
+- Not moved, since nothing built them: shapes' `ReplyText` node,
+  `ReplyChunk`, `UserSaidChanged` and `AgentName`. The one `ReplyText` is
+  the reply's checked text.
+- From `is_conversation_reply_vocabulary` 0.1.0: everything, unchanged.
+- Depends on `is_shapes` ^0.6.0, imported for `ActorId` alone; a test
+  refuses any wider import or a re-export.
+
+The entries below are `is_conversation_reply_vocabulary`'s.
+
+## is_conversation_reply_vocabulary 0.1.0
+
 - `is_reply_vocabulary` 0.2.1 under the name
   `is_conversation_reply_vocabulary`, unchanged: the same types,
   functions and JSON. "Reply" alone could be read as an HTTP
