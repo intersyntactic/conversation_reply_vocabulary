@@ -10,6 +10,11 @@ It holds types and does nothing. It depends on `checked_json`,
 file may import it: everything it imports is on import admission's pure
 list.
 
+Its decoders read JSON that is already decoded. Decode wire text with
+`checked_json`'s `decodeJsonRefusingDuplicateKeysAndUnsafeIntegers`, not
+`jsonDecode`: `jsonDecode` keeps the last of two same-named keys, so a
+duplicate is gone before any decoder here could refuse it.
+
 It replaces two packages, and declares its own types, so a package moves
 its dependency and every import to this name in one change:
 - `is_conversation_shapes`, discontinued at 0.8.4. `UserSaid`, `Quote` and

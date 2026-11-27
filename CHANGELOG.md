@@ -16,6 +16,9 @@
 - From `is_conversation_reply_vocabulary` 0.1.0: everything, unchanged.
 - Depends on `is_shapes` ^0.6.0, imported for `ActorId` alone; a test
   refuses any wider import or a re-export.
+- Depends on `checked_json` ^0.3.0. Decode wire text with its
+  `decodeJsonRefusingDuplicateKeysAndUnsafeIntegers` before any decoder
+  here.
 
 The entries below are `is_conversation_reply_vocabulary`'s.
 

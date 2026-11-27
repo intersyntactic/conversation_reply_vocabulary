@@ -10,7 +10,7 @@ environment:
   sdk: ^3.13.0
 
 dependencies:
-  checked_json: ^0.2.1
+  checked_json: ^0.3.0
   is_shapes: ^0.6.0
   is_web_address_vocabulary: ^0.1.2
 
