@@ -12,7 +12,11 @@
     `origin`, with no query, and `admitsBody` passes a request only when it
     is sent as `application/json` (at most `charset=utf-8`) and its body,
     read refusing a repeated key, holds every field of its
-    `PinnedBodyFields` as exactly that string. Slack pins `channel` and
+    `PinnedBodyFields.mustEqual` as exactly that string and none named in
+    its `mustBeAbsent`. A field that must be absent pins, for example, a
+    reply at a channel's top level (`thread_ts`), a name the reply may not
+    post under, or a second field a service would also read a recipient
+    from. Slack pins `channel` and
     `thread_ts` at `/api/chat.postMessage`; WhatsApp pins
     `messaging_product`, `recipient_type` and `to` at
     `/<version>/<number id>/messages`. A form-encoded body or a query is
@@ -24,8 +28,8 @@
   its service's ids on its own side.
 - A logbook written before 0.2.0 still reads: each
   `"case": "in-slack-conversation"` endpoint or posted message decodes as
-  the pinned case it meant (`/api/chat.postMessage`, pinning `channel` and,
-  when there was one, `thread_ts`). Only the new cases are written.
+  the pinned case it meant (`/api/chat.postMessage`, pinning `channel`, and
+  `thread_ts` when there was one or as absent when there wasn't). Only the new cases are written.
 - `ReplyEndpoint.origin`: the site every case's replies are sent to, so
   code that needs only the site needn't switch over the cases.
 - `ConversationKind`: what kind of conversation a message came from, in

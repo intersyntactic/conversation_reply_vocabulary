@@ -72,10 +72,10 @@ final class RepliesUnderWebAddress extends ReplyEndpoint {
   String toString() => 'RepliesUnderWebAddress($prefix)';
 }
 
-/// Replies go to exactly [path] on [origin], as a JSON body carrying every
-/// field of [pinned] with exactly its value, as services that take every
-/// reply at one address and name the conversation in the body do: Slack's
-/// `chat.postMessage` pins `channel` and `thread_ts`, WhatsApp's
+/// Replies go to exactly [path] on [origin], as a JSON body that holds the
+/// fields [pinned] says and lacks the ones it refuses, as services that
+/// take every reply at one address and name the conversation in the body
+/// do: Slack's `chat.postMessage` pins `channel` and `thread_ts`, WhatsApp's
 /// `/<version>/<number id>/messages` pins `recipient_type` and `to`. A
 /// reply is confined to its conversation by [pinned], which an enforcer
 /// checks with [admitsBody], never by where it is sent.
@@ -100,7 +100,7 @@ final class RepliesWithPinnedBodyFields extends ReplyEndpoint {
   final WebPath path;
 
   /// The fields that name the conversation, which every reply's body
-  /// carries with exactly these values.
+  /// carries with exactly these values, and those it must not carry.
   final PinnedBodyFields pinned;
 
   @override
@@ -129,10 +129,10 @@ final class RepliesWithPinnedBodyFields extends ReplyEndpoint {
   /// endpoint's conversation and no other: [contentType] is
   /// `application/json`, with at most a `charset=utf-8` parameter, and
   /// [body] is one JSON object, read refusing a repeated key, holding every
-  /// field of [pinned] as exactly its string. Any other field may be there,
-  /// since the reply itself is in the body too. A form-encoded body is
-  /// refused: a service may read the conversation from it in ways this
-  /// check can't see.
+  /// field of [pinned]'s `mustEqual` as exactly its string and none named in
+  /// its `mustBeAbsent`. Any other field may be there, since the reply
+  /// itself is in the body too. A form-encoded body is refused: a service
+  /// may read the conversation from it in ways this check can't see.
   bool admitsBody({required String contentType, required String body}) {
     if (!_isJson(contentType)) return false;
     final JsonObject object;
@@ -141,10 +141,10 @@ final class RepliesWithPinnedBodyFields extends ReplyEndpoint {
     } on FormatException {
       return false;
     }
-    for (final MapEntry(:key, :value) in pinned.fields.entries) {
+    for (final MapEntry(:key, :value) in pinned.mustEqual.entries) {
       if (object.raw(key) != value) return false;
     }
-    return true;
+    return !pinned.mustBeAbsent.any(object.has);
   }
 
   static bool _isJson(String contentType) {
@@ -163,35 +163,57 @@ final class RepliesWithPinnedBodyFields extends ReplyEndpoint {
   String toString() => 'RepliesWithPinnedBodyFields($origin, $path, $pinned)';
 }
 
-/// The fields a reply's body must carry to stay in its conversation: one or
-/// more names, each with the exact string it must hold, such as Slack's
-/// `{"channel": "C0123ABC", "thread_ts": "1700000000.000100"}`.
+/// What a reply's body must hold to stay in its conversation: one or more
+/// names in [mustEqual], each with the exact string it must hold, such as
+/// Slack's `{"channel": "C0123ABC", "thread_ts": "1700000000.000100"}`;
+/// and any names in [mustBeAbsent], which the body must not carry at all,
+/// such as `thread_ts` for a reply at a channel's top level, or a second
+/// field a service would also read a recipient from. A field can't be in
+/// both.
 final class PinnedBodyFields {
-  const PinnedBodyFields._(this.fields);
+  const PinnedBodyFields._(this.mustEqual, this.mustBeAbsent);
 
-  /// [fields] as pinned fields; null when there are none or a name is
-  /// empty, since a body need then carry nothing to pass.
-  static PinnedBodyFields? of(Map<String, String> fields) =>
-      fields.isEmpty || fields.keys.any((name) => name.isEmpty)
+  /// The pinned fields; null when [mustEqual] is empty, a name is empty,
+  /// or a name is in both, since a body need then carry nothing to pass
+  /// or could pass no way at all.
+  static PinnedBodyFields? of(
+    Map<String, String> mustEqual, {
+    Set<String> mustBeAbsent = const {},
+  }) =>
+      mustEqual.isEmpty ||
+          mustEqual.keys.any((name) => name.isEmpty) ||
+          mustBeAbsent.any((name) => name.isEmpty) ||
+          mustBeAbsent.any(mustEqual.containsKey)
       ? null
-      : PinnedBodyFields._(Map.unmodifiable(fields));
+      : PinnedBodyFields._(
+          Map.unmodifiable(mustEqual),
+          Set.unmodifiable(mustBeAbsent),
+        );
 
-  /// Each pinned field's name and the string it must hold.
-  final Map<String, String> fields;
+  /// Each field's name and the string it must hold.
+  final Map<String, String> mustEqual;
+
+  /// The names of fields the body must not carry.
+  final Set<String> mustBeAbsent;
 
   @override
   bool operator ==(Object other) =>
       other is PinnedBodyFields &&
-      other.fields.length == fields.length &&
-      fields.entries.every((e) => other.fields[e.key] == e.value);
+      other.mustEqual.length == mustEqual.length &&
+      mustEqual.entries.every((e) => other.mustEqual[e.key] == e.value) &&
+      other.mustBeAbsent.length == mustBeAbsent.length &&
+      other.mustBeAbsent.containsAll(mustBeAbsent);
 
   @override
-  int get hashCode => Object.hashAllUnordered(
-    fields.entries.map((e) => Object.hash(e.key, e.value)),
+  int get hashCode => Object.hash(
+    Object.hashAllUnordered(
+      mustEqual.entries.map((e) => Object.hash(e.key, e.value)),
+    ),
+    Object.hashAllUnordered(mustBeAbsent),
   );
 
   @override
-  String toString() => '$fields';
+  String toString() => 'PinnedBodyFields($mustEqual, absent: $mustBeAbsent)';
 }
 
 /// The one path a Slack reply was sent to before 0.2.0, which a logbook's
@@ -202,7 +224,9 @@ final _slackPostMessage = WebPath.parse('/api/chat.postMessage')!;
 ///
 ///     {"case": "under-web-address", "addressPrefix": <address prefix>}
 ///     {"case": "with-pinned-body-fields", "origin": <origin>,
-///      "path": <path>, "pinned": {<name>: <string>, ...}}
+///      "path": <path>, "pinned": <pinned body fields>}
+///
+/// `<pinned body fields>` is as [encodePinnedBodyFields] writes it.
 ///
 /// `<address prefix>` and `<origin>` are as is_web_address_vocabulary's
 /// `encodeAddressPrefix` and `encodeOrigin` write them.
@@ -221,9 +245,17 @@ JsonObject encodeReplyEndpoint(ReplyEndpoint endpoint) => JsonObject.of(
   },
 );
 
-/// [pinned] as a JSON object of its names and strings.
-JsonObject encodePinnedBodyFields(PinnedBodyFields pinned) =>
-    JsonObject.of(pinned.fields);
+/// [pinned] as JSON:
+///
+///     {"mustEqual": {<name>: <string>, ...},
+///      "mustBeAbsent": [<name>, ...]}
+///
+/// with `mustBeAbsent` left out when there are none, and its names sorted.
+JsonObject encodePinnedBodyFields(PinnedBodyFields pinned) => JsonObject.of({
+  'mustEqual': JsonObject.of(pinned.mustEqual),
+  if (pinned.mustBeAbsent.isNotEmpty)
+    'mustBeAbsent': [...pinned.mustBeAbsent]..sort(),
+});
 
 /// [json] read back as the endpoint [encodeReplyEndpoint] wrote. A
 /// [FormatException] naming [field] for anything it doesn't write: an
@@ -232,8 +264,9 @@ JsonObject encodePinnedBodyFields(PinnedBodyFields pinned) =>
 /// A logbook written before 0.2.0 holds Slack's endpoints as
 /// `{"case": "in-slack-conversation", "origin", "channel", "thread"?}`.
 /// Each reads back as the [RepliesWithPinnedBodyFields] it always meant:
-/// `/api/chat.postMessage` on its origin, pinning `channel` and, when it
-/// has one, `thread_ts`.
+/// `/api/chat.postMessage` on its origin, pinning `channel` and `thread_ts`
+/// when it had a thread, and refusing `thread_ts` when it had none, as a
+/// reply in an unthreaded direct message was sent.
 ReplyEndpoint decodeReplyEndpoint(Object? json, String field) {
   final object = StrictObjectReader.of(json, field);
   switch (object.kind('a reply endpoint')) {
@@ -271,19 +304,56 @@ ReplyEndpoint decodeReplyEndpoint(Object? json, String field) {
       return RepliesWithPinnedBodyFields._(
         decodeOrigin(object.raw('origin'), object.nested('origin')),
         _slackPostMessage,
-        PinnedBodyFields._({'channel': channel, 'thread_ts': ?thread}),
+        switch (thread) {
+          final ts? => PinnedBodyFields._(
+            Map.unmodifiable({'channel': channel, 'thread_ts': ts}),
+            const {},
+          ),
+          null => PinnedBodyFields._(
+            Map.unmodifiable({'channel': channel}),
+            const {'thread_ts'},
+          ),
+        },
       );
   }
 }
 
-/// [json] read back as the fields [encodePinnedBodyFields] wrote: an
-/// object of one or more non-empty names, each holding a string.
+/// [json] read back as the fields [encodePinnedBodyFields] wrote. A
+/// [FormatException] naming [field] for anything else, including an empty
+/// `mustBeAbsent`, a name twice in it, or names out of order, since each
+/// pinned set is written only one way.
 PinnedBodyFields decodePinnedBodyFields(Object? json, String field) {
   final object = StrictObjectReader.of(json, field);
-  final fields = <String, String>{
-    for (final name in object.keys)
-      name: object.parsed(name, (s) => s, 'a string'),
+  object.allowOnly(const {'mustEqual', 'mustBeAbsent'});
+  final equal = StrictObjectReader.of(
+    object.raw('mustEqual'),
+    object.nested('mustEqual'),
+  );
+  final mustEqual = <String, String>{
+    for (final name in equal.keys)
+      name: equal.parsed(name, (s) => s, 'a string'),
   };
-  return PinnedBodyFields.of(fields) ??
-      object.refuse('no fields, or a field with no name');
+  final absentAt = object.nested('mustBeAbsent');
+  final mustBeAbsent = switch (object.raw('mustBeAbsent')) {
+    null when !object.has('mustBeAbsent') => const <String>[],
+    final List<Object?> names when names.isNotEmpty => [
+      for (final name in names)
+        switch (name) {
+          final String s => s,
+          _ => throw FormatException('$absentAt: not a list of names'),
+        },
+    ],
+    _ => throw FormatException('$absentAt: not a non-empty list of names'),
+  };
+  final sorted = [...mustBeAbsent]..sort();
+  for (var i = 0; i < sorted.length; i++) {
+    if (sorted[i] != mustBeAbsent[i] || (i > 0 && sorted[i] == sorted[i - 1])) {
+      throw FormatException('$absentAt: names repeated or not sorted');
+    }
+  }
+  return PinnedBodyFields.of(mustEqual, mustBeAbsent: {...mustBeAbsent}) ??
+      object.refuse(
+        'no fields to equal, a field with no name, or one both equal and '
+        'absent',
+      );
 }

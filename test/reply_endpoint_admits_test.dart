@@ -186,9 +186,40 @@ void main() {
     expect(_teams.redirectsStayUnder, _teams.prefix.pathPrefix);
   });
 
-  test('pinned fields need at least one named field', () {
+  test('a field pinned absent must not be in the body at all', () {
+    final topLevel = RepliesWithPinnedBodyFields.at(
+      origin: _slackOrigin,
+      path: _path('/api/chat.postMessage'),
+      pinned: PinnedBodyFields.of(
+        {'channel': 'C0123ABC'},
+        mustBeAbsent: {'thread_ts', 'username'},
+      )!,
+    )!;
+    expect(
+      topLevel.admitsBody(
+        contentType: _json,
+        body: '{"channel":"C0123ABC","text":"hi"}',
+      ),
+      isTrue,
+    );
+    for (final body in [
+      '{"channel":"C0123ABC","thread_ts":"1700000000.000100","text":"hi"}',
+      '{"channel":"C0123ABC","thread_ts":null,"text":"hi"}',
+      '{"channel":"C0123ABC","username":"Nick","text":"hi"}',
+    ]) {
+      expect(
+        topLevel.admitsBody(contentType: _json, body: body),
+        isFalse,
+        reason: body,
+      );
+    }
+  });
+
+  test('pinned fields need at least one named field, none both ways', () {
     expect(PinnedBodyFields.of({}), isNull);
     expect(PinnedBodyFields.of({'': 'x'}), isNull);
+    expect(PinnedBodyFields.of({'a': '1'}, mustBeAbsent: {''}), isNull);
+    expect(PinnedBodyFields.of({'a': '1'}, mustBeAbsent: {'a'}), isNull);
     expect(
       PinnedBodyFields.of({'a': '1', 'b': '2'}),
       PinnedBodyFields.of({'b': '2', 'a': '1'}),

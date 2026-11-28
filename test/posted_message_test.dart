@@ -50,7 +50,8 @@ void main() {
   test('each case is written as its fields, named as its endpoint is', () {
     expect(
       jsonEncode(encodePostedMessage(_slack)),
-      '{"case":"with-pinned-body-fields","pinned":{"channel":"C0123ABC"},'
+      '{"case":"with-pinned-body-fields",'
+      '"pinned":{"mustEqual":{"channel":"C0123ABC"}},'
       '"id":"1700000000.000200"}',
     );
     expect(

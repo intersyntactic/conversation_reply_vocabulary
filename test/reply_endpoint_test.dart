@@ -18,12 +18,14 @@ final _teams = RepliesUnderWebAddress(
   ),
 );
 
-RepliesWithPinnedBodyFields _slackThread(Map<String, String> pinned) =>
-    RepliesWithPinnedBodyFields.at(
-      origin: _slack,
-      path: WebPath.parse('/api/chat.postMessage')!,
-      pinned: PinnedBodyFields.of(pinned)!,
-    )!;
+RepliesWithPinnedBodyFields _slackThread(
+  Map<String, String> pinned, {
+  Set<String> absent = const {},
+}) => RepliesWithPinnedBodyFields.at(
+  origin: _slack,
+  path: WebPath.parse('/api/chat.postMessage')!,
+  pinned: PinnedBodyFields.of(pinned, mustBeAbsent: absent)!,
+)!;
 
 final _thread = _slackThread({
   'channel': 'C0123ABC',
@@ -35,7 +37,11 @@ void main() {
     for (final endpoint in <ReplyEndpoint>[
       _teams,
       _thread,
-      _slackThread({'channel': 'D0456DEF'}),
+      _slackThread({'channel': 'D0456DEF'}, absent: {'thread_ts'}),
+      _slackThread(
+        {'channel': 'C0123ABC'},
+        absent: {'thread_ts', 'icon_url', 'username'},
+      ),
     ]) {
       final text = jsonEncode(encodeReplyEndpoint(endpoint));
       expect(decodeReplyEndpoint(jsonDecode(text), 'replyEndpoint'), endpoint);
@@ -47,7 +53,19 @@ void main() {
       jsonEncode(encodeReplyEndpoint(_thread)),
       '{"case":"with-pinned-body-fields","origin":"https://slack.com",'
       '"path":"/api/chat.postMessage",'
-      '"pinned":{"channel":"C0123ABC","thread_ts":"1700000000.000100"}}',
+      '"pinned":{"mustEqual":{"channel":"C0123ABC",'
+      '"thread_ts":"1700000000.000100"}}}',
+    );
+    expect(
+      jsonEncode(
+        encodeReplyEndpoint(
+          _slackThread({'channel': 'C1'}, absent: {'username', 'thread_ts'}),
+        ),
+      ),
+      contains(
+        '"pinned":{"mustEqual":{"channel":"C1"},'
+        '"mustBeAbsent":["thread_ts","username"]}',
+      ),
     );
     expect(
       jsonEncode(encodeReplyEndpoint(_teams)),
@@ -77,7 +95,7 @@ void main() {
         ),
         'replyEndpoint',
       ),
-      _slackThread({'channel': 'D0456DEF'}),
+      _slackThread({'channel': 'D0456DEF'}, absent: {'thread_ts'}),
     );
   });
 
@@ -99,12 +117,45 @@ void main() {
       pinned.withFields({'path': ''}),
       pinned.withFields({'path': 'api/chat.postMessage'}),
       pinned.withFields({'pinned': <String, Object?>{}}),
-      pinned.withFields({
-        'pinned': {'channel': 7},
-      }),
-      pinned.withFields({
-        'pinned': {'': 'x'},
-      }),
+      for (final bad in <Object?>[
+        {'mustEqual': <String, Object?>{}},
+        {
+          'mustEqual': {'channel': 7},
+        },
+        {
+          'mustEqual': {'': 'x'},
+        },
+        {'channel': 'C0123ABC'},
+        {
+          'mustEqual': {'channel': 'C1'},
+          'mustBeAbsent': <Object?>[],
+        },
+        {
+          'mustEqual': {'channel': 'C1'},
+          'mustBeAbsent': ['username', 'thread_ts'],
+        },
+        {
+          'mustEqual': {'channel': 'C1'},
+          'mustBeAbsent': ['a', 'a'],
+        },
+        {
+          'mustEqual': {'channel': 'C1'},
+          'mustBeAbsent': ['channel'],
+        },
+        {
+          'mustEqual': {'channel': 'C1'},
+          'mustBeAbsent': [7],
+        },
+        {
+          'mustEqual': {'channel': 'C1'},
+          'mustBeAbsent': null,
+        },
+        {
+          'mustEqual': {'channel': 'C1'},
+          'extra': 1,
+        },
+      ])
+        pinned.withFields({'pinned': bad}),
       pinned.withFields({'pinned': 'C0123ABC'}),
       pinned.withFields({'extra': 1}),
       oldSlack.without({'channel'}),
