@@ -35,6 +35,9 @@ export 'whatsapp_chat.dart'
 sealed class ReplyEndpoint {
   const ReplyEndpoint();
 
+  /// The site this endpoint's replies are sent to.
+  Origin get origin;
+
   /// Whether a request to [path] on [to] is to an address this endpoint's
   /// replies are sent to. It checks the address only, never the
   /// conversation: for a Slack endpoint the address is the same for every
@@ -57,6 +60,10 @@ final class RepliesUnderWebAddress extends ReplyEndpoint {
   const RepliesUnderWebAddress(this.prefix);
 
   final AddressPrefix prefix;
+
+  /// [prefix]'s origin.
+  @override
+  Origin get origin => prefix.origin;
 
   @override
   bool operator ==(Object other) =>
@@ -89,6 +96,7 @@ final class RepliesInSlackConversation extends ReplyEndpoint {
   });
 
   /// The site the reply is sent to, the same for every Slack reply.
+  @override
   final Origin origin;
 
   final SlackChannelId channel;
@@ -144,6 +152,7 @@ final class RepliesInWhatsAppChat extends ReplyEndpoint {
   });
 
   /// The site the reply is sent to, such as `https://graph.facebook.com`.
+  @override
   final Origin origin;
 
   /// The Graph API version the reply's path names, as the module vouches

@@ -85,6 +85,15 @@ void main() {
     expect(_teams.admitsAddress(_slackOrigin, _path('${under}abc')), isFalse);
   });
 
+  test('every endpoint names the site its replies are sent to', () {
+    expect(_slack.origin, _slackOrigin);
+    expect(_teams.origin, _teamsOrigin);
+    expect(<ReplyEndpoint>[_slack, _teams].map((e) => e.origin), [
+      _slackOrigin,
+      _teamsOrigin,
+    ]);
+  });
+
   test('redirects stay under /api/ for Slack and the prefix for Teams', () {
     expect(_slack.redirectsStayUnder, PathPrefix.parse('/api/'));
     expect(

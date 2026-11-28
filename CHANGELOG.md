@@ -10,6 +10,8 @@
   body: a `WhatsAppIndividualChat` by `WhatsAppUserPhoneNumber`, or a
   `WhatsAppGroupChat` by `WhatsAppGroupId`. The Graph API version is a
   field the module vouches for, not one this package pins.
+- `ReplyEndpoint.origin`: the site every case's replies are sent to,
+  so code that needs only the site needn't switch over the cases.
 - `PostedInWhatsAppChat`: the message such a reply posted, by its chat and
   the `ServerAssignedMessageId` WhatsApp gave it.
 - JSON case `in-whatsapp-chat` for both. Existing cases' JSON is
