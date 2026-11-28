@@ -21,6 +21,10 @@
   the `ServerAssignedMessageId` WhatsApp gave it.
 - JSON case `in-whatsapp-chat` for both. Existing cases' JSON is
   unchanged.
+- `package:is_conversation_vocabulary/reply_endpoint.dart` now also
+  reaches `src/whatsapp_chat.dart`: WhatsApp's chat and ids, and their
+  strict JSON, with no new package. A guard that pins that library's
+  imports by file needs to allow it.
 
 ## 0.1.1
 
