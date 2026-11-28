@@ -215,6 +215,68 @@ void main() {
     }
   });
 
+  test('an allow-list lets through only the pinned and listed fields', () {
+    final thread = RepliesWithPinnedBodyFields.at(
+      origin: _slackOrigin,
+      path: _path('/api/chat.postMessage'),
+      pinned: PinnedBodyFields.allowingOnly(
+        {'channel': 'C0123ABC', 'thread_ts': '1700000000.000100'},
+        otherFields: {'text'},
+      )!,
+    )!;
+    expect(
+      thread.admitsBody(
+        contentType: _json,
+        body:
+            '{"channel":"C0123ABC","thread_ts":"1700000000.000100",'
+            '"text":"hi"}',
+      ),
+      isTrue,
+    );
+    for (final extra in [
+      '"reply_broadcast":true',
+      '"blocks":[]',
+      '"link_names":1',
+      '"username":"Nick"',
+      '"anything_slack_adds_later":"x"',
+    ]) {
+      expect(
+        thread.admitsBody(
+          contentType: _json,
+          body:
+              '{"channel":"C0123ABC","thread_ts":"1700000000.000100",'
+              '"text":"hi",$extra}',
+        ),
+        isFalse,
+        reason: extra,
+      );
+    }
+    final topLevel = RepliesWithPinnedBodyFields.at(
+      origin: _slackOrigin,
+      path: _path('/api/chat.postMessage'),
+      pinned: PinnedBodyFields.allowingOnly(
+        {'channel': 'C0123ABC'},
+        otherFields: {'text'},
+      )!,
+    )!;
+    expect(
+      topLevel.admitsBody(
+        contentType: _json,
+        body: '{"channel":"C0123ABC","thread_ts":"1700000000.000100"}',
+      ),
+      isFalse,
+      reason: 'an unlisted thread_ts',
+    );
+    expect(
+      PinnedBodyFields.allowingOnly({'a': '1'}, otherFields: {'a'}),
+      isNull,
+    );
+    expect(
+      PinnedBodyFields.allowingOnly({'a': '1'}, otherFields: {}),
+      isNot(PinnedBodyFields.of({'a': '1'})),
+    );
+  });
+
   test('pinned fields need at least one named field, none both ways', () {
     expect(PinnedBodyFields.of({}), isNull);
     expect(PinnedBodyFields.of({'': 'x'}), isNull);

@@ -12,11 +12,15 @@
     `origin`, with no query, and `admitsBody` passes a request only when it
     is sent as `application/json` (at most `charset=utf-8`) and its body,
     read refusing a repeated key, holds every field of its
-    `PinnedBodyFields.mustEqual` as exactly that string and none named in
-    its `mustBeAbsent`. A field that must be absent pins, for example, a
-    reply at a channel's top level (`thread_ts`), a name the reply may not
-    post under, or a second field a service would also read a recipient
-    from. Slack pins `channel` and
+    `PinnedBodyFields.mustEqual` as exactly that string, and other fields
+    only as its `OtherBodyFields` allow: `AnyOtherFieldsExcept` names
+    fields that must be absent (`PinnedBodyFields.of(…, mustBeAbsent:)`),
+    such as `thread_ts` for a reply at a channel's top level or a second
+    field a service would also read a recipient from;
+    `OnlyTheseOtherFields` allows no field it doesn't name
+    (`PinnedBodyFields.allowingOnly(…, otherFields:)`), so one a service
+    adds later, or one such as Slack's `reply_broadcast` that reaches past
+    the pin, can't get through. Slack pins `channel` and
     `thread_ts` at `/api/chat.postMessage`; WhatsApp pins
     `messaging_product`, `recipient_type` and `to` at
     `/<version>/<number id>/messages`. A form-encoded body or a query is

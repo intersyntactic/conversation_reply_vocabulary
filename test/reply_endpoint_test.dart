@@ -48,6 +48,36 @@ void main() {
     }
   });
 
+  test('an allow-listed endpoint reads back and is written as its list', () {
+    final endpoint = RepliesWithPinnedBodyFields.at(
+      origin: _slack,
+      path: WebPath.parse('/api/chat.postMessage')!,
+      pinned: PinnedBodyFields.allowingOnly(
+        {'channel': 'C1'},
+        otherFields: {'text', 'mrkdwn'},
+      )!,
+    )!;
+    final text = jsonEncode(encodeReplyEndpoint(endpoint));
+    expect(
+      text,
+      contains(
+        '"pinned":{"mustEqual":{"channel":"C1"},'
+        '"onlyOtherFields":["mrkdwn","text"]}',
+      ),
+    );
+    expect(decodeReplyEndpoint(jsonDecode(text), 'replyEndpoint'), endpoint);
+    final none = RepliesWithPinnedBodyFields.at(
+      origin: _slack,
+      path: WebPath.parse('/api/chat.postMessage')!,
+      pinned: PinnedBodyFields.allowingOnly({
+        'channel': 'C1',
+      }, otherFields: {})!,
+    )!;
+    final noneText = jsonEncode(encodeReplyEndpoint(none));
+    expect(noneText, contains('"onlyOtherFields":[]'));
+    expect(decodeReplyEndpoint(jsonDecode(noneText), 'replyEndpoint'), none);
+  });
+
   test('each case is written as its fields', () {
     expect(
       jsonEncode(encodeReplyEndpoint(_thread)),
@@ -153,6 +183,23 @@ void main() {
         {
           'mustEqual': {'channel': 'C1'},
           'extra': 1,
+        },
+        {
+          'mustEqual': {'channel': 'C1'},
+          'mustBeAbsent': ['a'],
+          'onlyOtherFields': ['b'],
+        },
+        {
+          'mustEqual': {'channel': 'C1'},
+          'onlyOtherFields': ['text', 'mrkdwn'],
+        },
+        {
+          'mustEqual': {'channel': 'C1'},
+          'onlyOtherFields': ['channel'],
+        },
+        {
+          'mustEqual': {'channel': 'C1'},
+          'onlyOtherFields': null,
         },
       ])
         pinned.withFields({'pinned': bad}),

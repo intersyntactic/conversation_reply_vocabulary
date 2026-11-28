@@ -129,9 +129,8 @@ final class RepliesWithPinnedBodyFields extends ReplyEndpoint {
   /// endpoint's conversation and no other: [contentType] is
   /// `application/json`, with at most a `charset=utf-8` parameter, and
   /// [body] is one JSON object, read refusing a repeated key, holding every
-  /// field of [pinned]'s `mustEqual` as exactly its string and none named in
-  /// its `mustBeAbsent`. Any other field may be there, since the reply
-  /// itself is in the body too. A form-encoded body is refused: a service
+  /// field of [pinned]'s `mustEqual` as exactly its string, and other fields
+  /// only as its `others` allow. A form-encoded body is refused: a service
   /// may read the conversation from it in ways this check can't see.
   bool admitsBody({required String contentType, required String body}) {
     if (!_isJson(contentType)) return false;
@@ -144,7 +143,15 @@ final class RepliesWithPinnedBodyFields extends ReplyEndpoint {
     for (final MapEntry(:key, :value) in pinned.mustEqual.entries) {
       if (object.raw(key) != value) return false;
     }
-    return !pinned.mustBeAbsent.any(object.has);
+    return switch (pinned.others) {
+      AnyOtherFieldsExcept(:final mustBeAbsent) => !mustBeAbsent.any(
+        object.has,
+      ),
+      OnlyTheseOtherFields(:final mayAppear) => object.keys.every(
+        (name) =>
+            pinned.mustEqual.containsKey(name) || mayAppear.contains(name),
+      ),
+    };
   }
 
   static bool _isJson(String contentType) {
@@ -166,54 +173,111 @@ final class RepliesWithPinnedBodyFields extends ReplyEndpoint {
 /// What a reply's body must hold to stay in its conversation: one or more
 /// names in [mustEqual], each with the exact string it must hold, such as
 /// Slack's `{"channel": "C0123ABC", "thread_ts": "1700000000.000100"}`;
-/// and any names in [mustBeAbsent], which the body must not carry at all,
-/// such as `thread_ts` for a reply at a channel's top level, or a second
-/// field a service would also read a recipient from. A field can't be in
-/// both.
+/// and which [others] may appear beside them.
 final class PinnedBodyFields {
-  const PinnedBodyFields._(this.mustEqual, this.mustBeAbsent);
+  const PinnedBodyFields._(this.mustEqual, this.others);
 
-  /// The pinned fields; null when [mustEqual] is empty, a name is empty,
-  /// or a name is in both, since a body need then carry nothing to pass
-  /// or could pass no way at all.
+  /// [mustEqual], with any other field allowed except those in
+  /// [mustBeAbsent], such as `thread_ts` for a reply at a channel's top
+  /// level, or a second field a service would also read a recipient from.
+  /// Null when [mustEqual] is empty, a name is empty, or a name is in both.
   static PinnedBodyFields? of(
     Map<String, String> mustEqual, {
     Set<String> mustBeAbsent = const {},
-  }) =>
-      mustEqual.isEmpty ||
-          mustEqual.keys.any((name) => name.isEmpty) ||
-          mustBeAbsent.any((name) => name.isEmpty) ||
-          mustBeAbsent.any(mustEqual.containsKey)
-      ? null
-      : PinnedBodyFields._(
+  }) => _valid(mustEqual, mustBeAbsent)
+      ? PinnedBodyFields._(
           Map.unmodifiable(mustEqual),
-          Set.unmodifiable(mustBeAbsent),
-        );
+          AnyOtherFieldsExcept._(Set.unmodifiable(mustBeAbsent)),
+        )
+      : null;
+
+  /// [mustEqual], with no other field allowed but those in [otherFields],
+  /// such as Slack's `text`: a field a service adds later can't get
+  /// through. Null when [mustEqual] is empty, a name is empty, or a name
+  /// is in both.
+  static PinnedBodyFields? allowingOnly(
+    Map<String, String> mustEqual, {
+    required Set<String> otherFields,
+  }) => _valid(mustEqual, otherFields)
+      ? PinnedBodyFields._(
+          Map.unmodifiable(mustEqual),
+          OnlyTheseOtherFields._(Set.unmodifiable(otherFields)),
+        )
+      : null;
+
+  static bool _valid(Map<String, String> mustEqual, Set<String> others) =>
+      mustEqual.isNotEmpty &&
+      !mustEqual.keys.any((name) => name.isEmpty) &&
+      !others.any((name) => name.isEmpty || mustEqual.containsKey(name));
 
   /// Each field's name and the string it must hold.
   final Map<String, String> mustEqual;
 
-  /// The names of fields the body must not carry.
-  final Set<String> mustBeAbsent;
+  /// Which other fields the body may carry.
+  final OtherBodyFields others;
 
   @override
   bool operator ==(Object other) =>
       other is PinnedBodyFields &&
       other.mustEqual.length == mustEqual.length &&
       mustEqual.entries.every((e) => other.mustEqual[e.key] == e.value) &&
-      other.mustBeAbsent.length == mustBeAbsent.length &&
-      other.mustBeAbsent.containsAll(mustBeAbsent);
+      other.others == others;
 
   @override
   int get hashCode => Object.hash(
     Object.hashAllUnordered(
       mustEqual.entries.map((e) => Object.hash(e.key, e.value)),
     ),
-    Object.hashAllUnordered(mustBeAbsent),
+    others,
   );
 
   @override
-  String toString() => 'PinnedBodyFields($mustEqual, absent: $mustBeAbsent)';
+  String toString() => 'PinnedBodyFields($mustEqual, $others)';
+}
+
+/// Which fields besides the pinned ones a reply's body may carry:
+/// [AnyOtherFieldsExcept] or [OnlyTheseOtherFields].
+sealed class OtherBodyFields {
+  const OtherBodyFields();
+}
+
+/// Any other field, except those named in [mustBeAbsent].
+final class AnyOtherFieldsExcept extends OtherBodyFields {
+  const AnyOtherFieldsExcept._(this.mustBeAbsent);
+
+  final Set<String> mustBeAbsent;
+
+  @override
+  bool operator ==(Object other) =>
+      other is AnyOtherFieldsExcept &&
+      other.mustBeAbsent.length == mustBeAbsent.length &&
+      other.mustBeAbsent.containsAll(mustBeAbsent);
+
+  @override
+  int get hashCode => Object.hashAllUnordered(mustBeAbsent);
+
+  @override
+  String toString() => 'any except $mustBeAbsent';
+}
+
+/// No other field but those named in [mayAppear].
+final class OnlyTheseOtherFields extends OtherBodyFields {
+  const OnlyTheseOtherFields._(this.mayAppear);
+
+  final Set<String> mayAppear;
+
+  @override
+  bool operator ==(Object other) =>
+      other is OnlyTheseOtherFields &&
+      other.mayAppear.length == mayAppear.length &&
+      other.mayAppear.containsAll(mayAppear);
+
+  @override
+  int get hashCode =>
+      Object.hash(OnlyTheseOtherFields, Object.hashAllUnordered(mayAppear));
+
+  @override
+  String toString() => 'only $mayAppear';
 }
 
 /// The one path a Slack reply was sent to before 0.2.0, which a logbook's
@@ -249,12 +313,23 @@ JsonObject encodeReplyEndpoint(ReplyEndpoint endpoint) => JsonObject.of(
 ///
 ///     {"mustEqual": {<name>: <string>, ...},
 ///      "mustBeAbsent": [<name>, ...]}
+///     {"mustEqual": {<name>: <string>, ...},
+///      "onlyOtherFields": [<name>, ...]}
 ///
-/// with `mustBeAbsent` left out when there are none, and its names sorted.
+/// as its [OtherBodyFields] is [AnyOtherFieldsExcept] or
+/// [OnlyTheseOtherFields]. Names are sorted. `mustBeAbsent` is left out
+/// when there are none; `onlyOtherFields` is always written, and empty
+/// when no other field may appear.
 JsonObject encodePinnedBodyFields(PinnedBodyFields pinned) => JsonObject.of({
   'mustEqual': JsonObject.of(pinned.mustEqual),
-  if (pinned.mustBeAbsent.isNotEmpty)
-    'mustBeAbsent': [...pinned.mustBeAbsent]..sort(),
+  ...switch (pinned.others) {
+    AnyOtherFieldsExcept(:final mustBeAbsent) => {
+      if (mustBeAbsent.isNotEmpty) 'mustBeAbsent': [...mustBeAbsent]..sort(),
+    },
+    OnlyTheseOtherFields(:final mayAppear) => {
+      'onlyOtherFields': [...mayAppear]..sort(),
+    },
+  },
 });
 
 /// [json] read back as the endpoint [encodeReplyEndpoint] wrote. A
@@ -305,26 +380,26 @@ ReplyEndpoint decodeReplyEndpoint(Object? json, String field) {
         decodeOrigin(object.raw('origin'), object.nested('origin')),
         _slackPostMessage,
         switch (thread) {
-          final ts? => PinnedBodyFields._(
-            Map.unmodifiable({'channel': channel, 'thread_ts': ts}),
-            const {},
-          ),
-          null => PinnedBodyFields._(
-            Map.unmodifiable({'channel': channel}),
-            const {'thread_ts'},
-          ),
+          final ts? => PinnedBodyFields.of({
+            'channel': channel,
+            'thread_ts': ts,
+          })!,
+          null => PinnedBodyFields.of(
+            {'channel': channel},
+            mustBeAbsent: const {'thread_ts'},
+          )!,
         },
       );
   }
 }
 
 /// [json] read back as the fields [encodePinnedBodyFields] wrote. A
-/// [FormatException] naming [field] for anything else, including an empty
-/// `mustBeAbsent`, a name twice in it, or names out of order, since each
-/// pinned set is written only one way.
+/// [FormatException] naming [field] for anything else, including both
+/// `mustBeAbsent` and `onlyOtherFields`, an empty `mustBeAbsent`, or a name
+/// list repeated or out of order, since each is written only one way.
 PinnedBodyFields decodePinnedBodyFields(Object? json, String field) {
   final object = StrictObjectReader.of(json, field);
-  object.allowOnly(const {'mustEqual', 'mustBeAbsent'});
+  object.allowOnly(const {'mustEqual', 'mustBeAbsent', 'onlyOtherFields'});
   final equal = StrictObjectReader.of(
     object.raw('mustEqual'),
     object.nested('mustEqual'),
@@ -333,27 +408,50 @@ PinnedBodyFields decodePinnedBodyFields(Object? json, String field) {
     for (final name in equal.keys)
       name: equal.parsed(name, (s) => s, 'a string'),
   };
-  final absentAt = object.nested('mustBeAbsent');
-  final mustBeAbsent = switch (object.raw('mustBeAbsent')) {
-    null when !object.has('mustBeAbsent') => const <String>[],
-    final List<Object?> names when names.isNotEmpty => [
-      for (final name in names)
+  final pinned = switch ((
+    object.has('mustBeAbsent'),
+    object.has('onlyOtherFields'),
+  )) {
+    (true, true) => object.refuse('both `mustBeAbsent` and `onlyOtherFields`'),
+    (false, false) => PinnedBodyFields.of(mustEqual),
+    (true, false) => PinnedBodyFields.of(
+      mustEqual,
+      mustBeAbsent: _sortedNames(object, 'mustBeAbsent', mayBeEmpty: false),
+    ),
+    (false, true) => PinnedBodyFields.allowingOnly(
+      mustEqual,
+      otherFields: _sortedNames(object, 'onlyOtherFields', mayBeEmpty: true),
+    ),
+  };
+  return pinned ??
+      object.refuse(
+        'no fields to equal, a field with no name, or one both pinned and '
+        'named again',
+      );
+}
+
+/// The list of names at [key], refused unless every one is a string, they
+/// are sorted with none repeated, and, unless [mayBeEmpty], there is one.
+Set<String> _sortedNames(
+  StrictObjectReader object,
+  String key, {
+  required bool mayBeEmpty,
+}) {
+  final at = object.nested(key);
+  final names = switch (object.raw(key)) {
+    final List<Object?> list when mayBeEmpty || list.isNotEmpty => [
+      for (final name in list)
         switch (name) {
           final String s => s,
-          _ => throw FormatException('$absentAt: not a list of names'),
+          _ => throw FormatException('$at: not a list of names'),
         },
     ],
-    _ => throw FormatException('$absentAt: not a non-empty list of names'),
+    _ => throw FormatException('$at: not a list of names'),
   };
-  final sorted = [...mustBeAbsent]..sort();
-  for (var i = 0; i < sorted.length; i++) {
-    if (sorted[i] != mustBeAbsent[i] || (i > 0 && sorted[i] == sorted[i - 1])) {
-      throw FormatException('$absentAt: names repeated or not sorted');
+  for (var i = 1; i < names.length; i++) {
+    if (names[i - 1].compareTo(names[i]) >= 0) {
+      throw FormatException('$at: names repeated or not sorted');
     }
   }
-  return PinnedBodyFields.of(mustEqual, mustBeAbsent: {...mustBeAbsent}) ??
-      object.refuse(
-        'no fields to equal, a field with no name, or one both equal and '
-        'absent',
-      );
+  return {...names};
 }
