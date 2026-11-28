@@ -3,7 +3,7 @@ description: >-
   An external chat conversation, both ways: what a person said in it and
   what became of that message, and a reply posted back into it (where it
   goes, what it says, the id it was posted under), with their JSON.
-version: 0.3.0
+version: 0.2.0
 repository: https://github.com/intersyntactic/conversation_vocabulary
 
 environment:
