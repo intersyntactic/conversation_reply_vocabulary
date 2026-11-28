@@ -24,6 +24,9 @@ final class StrictObjectReader {
   /// The name of the nested field [key], for a decoder that reads it.
   String nested(String key) => '$_field.$key';
 
+  /// The object's field names, for a decoder whose fields are not fixed.
+  Iterable<String> get keys => _json.keys;
+
   /// The field [key] as it was decoded, for a decoder that reads it.
   Object? raw(String key) => _json.raw(key);
 

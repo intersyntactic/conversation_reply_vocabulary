@@ -58,7 +58,6 @@ void main() {
       'src/reply_endpoint.dart',
       'src/reply_endpoint_case.dart',
       'src/strict_object_reader.dart',
-      'src/whatsapp_chat.dart',
     });
     expect(reached.packages, {
       'package:checked_json/checked_json.dart',

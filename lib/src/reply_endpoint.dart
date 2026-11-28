@@ -1,7 +1,8 @@
 /// Where replies to an event go, as its module vouches for it, and its form
-/// in the logbook. One case for each way an external system takes replies,
-/// since a reply's target is a web address for some and a field of the
-/// request's body for others.
+/// in the logbook. One case for each way a reply can be kept to its
+/// conversation: by the web address it is sent to, or by fields its body
+/// must carry. No case names a chat service; a module turns its service's
+/// ids into one of these.
 library;
 
 import 'package:checked_json/checked_json.dart' show JsonObject;
@@ -18,20 +19,9 @@ import 'package:is_web_address_vocabulary/is_web_address_vocabulary.dart'
 
 import 'reply_endpoint_case.dart';
 import 'strict_object_reader.dart';
-import 'whatsapp_chat.dart';
 
-export 'whatsapp_chat.dart'
-    show
-        GraphApiVersion,
-        WhatsAppBusinessPhoneNumberId,
-        WhatsAppChat,
-        WhatsAppGroupChat,
-        WhatsAppGroupId,
-        WhatsAppIndividualChat,
-        WhatsAppUserPhoneNumber;
-
-/// Where replies to an event go: [RepliesUnderWebAddress],
-/// [RepliesInSlackConversation] or [RepliesInWhatsAppChat].
+/// Where replies to an event go: [RepliesUnderWebAddress] or
+/// [RepliesWithPinnedBodyFields].
 sealed class ReplyEndpoint {
   const ReplyEndpoint();
 
@@ -39,11 +29,10 @@ sealed class ReplyEndpoint {
   Origin get origin;
 
   /// Whether a request to [path] on [to] is to an address this endpoint's
-  /// replies are sent to. It checks the address only, never the
-  /// conversation: for a Slack endpoint the address is the same for every
-  /// conversation, so this never confines a reply to its conversation. The
-  /// channel and thread come from the endpoint itself, in the request it
-  /// draws.
+  /// replies are sent to. For [RepliesWithPinnedBodyFields] the address is
+  /// the same for every conversation, so the address alone never confines
+  /// a reply to its conversation; its body must pass
+  /// [RepliesWithPinnedBodyFields.admitsBody] too.
   bool admitsAddress(Origin to, WebPath path);
 
   /// The path prefix a redirect of an admitted request must stay under.
@@ -83,212 +72,168 @@ final class RepliesUnderWebAddress extends ReplyEndpoint {
   String toString() => 'RepliesUnderWebAddress($prefix)';
 }
 
-/// Replies go to Slack's [channel], in [thread], through [origin]. Slack
-/// takes every reply at one web address and names its conversation in the
-/// request's body, so a reply is confined to its conversation by [channel]
-/// and [thread], never by where it is sent; [origin] is what the
-/// trajectory's rules say it may reply through at all.
-final class RepliesInSlackConversation extends ReplyEndpoint {
-  const RepliesInSlackConversation({
-    required this.origin,
-    required this.channel,
-    this.thread,
-  });
+/// Replies go to exactly [path] on [origin], as a JSON body carrying every
+/// field of [pinned] with exactly its value, as services that take every
+/// reply at one address and name the conversation in the body do: Slack's
+/// `chat.postMessage` pins `channel` and `thread_ts`, WhatsApp's
+/// `/<version>/<number id>/messages` pins `recipient_type` and `to`. A
+/// reply is confined to its conversation by [pinned], which an enforcer
+/// checks with [admitsBody], never by where it is sent.
+final class RepliesWithPinnedBodyFields extends ReplyEndpoint {
+  const RepliesWithPinnedBodyFields._(this.origin, this.path, this.pinned);
 
-  /// The site the reply is sent to, the same for every Slack reply.
+  /// Replies to [path] on [origin] whose body carries [pinned]; null when
+  /// [path] has a query or is the origin's bare address, since a service
+  /// may read a conversation from a query that [admitsBody] never sees.
+  static RepliesWithPinnedBodyFields? at({
+    required Origin origin,
+    required WebPath path,
+    required PinnedBodyFields pinned,
+  }) => path == WebPath.root || path.value.contains('?')
+      ? null
+      : RepliesWithPinnedBodyFields._(origin, path, pinned);
+
   @override
   final Origin origin;
 
-  final SlackChannelId channel;
+  /// The one path a reply is sent to, with no query.
+  final WebPath path;
 
-  /// The thread the reply goes in, by its root message. A post at a
-  /// channel's or a group message's top level is a thread's root, so a
-  /// reply to it names that post's own timestamp. Null only for a direct
-  /// message between one person and the bot, which Slack doesn't thread.
-  final SlackMessageTimestamp? thread;
+  /// The fields that name the conversation, which every reply's body
+  /// carries with exactly these values.
+  final PinnedBodyFields pinned;
 
   @override
   bool operator ==(Object other) =>
-      other is RepliesInSlackConversation &&
+      other is RepliesWithPinnedBodyFields &&
       other.origin == origin &&
-      other.channel == channel &&
-      other.thread == thread;
+      other.path == path &&
+      other.pinned == pinned;
 
   @override
-  int get hashCode => Object.hash(origin, channel, thread);
+  int get hashCode => Object.hash(origin, path, pinned);
 
-  /// The one path a Slack reply is sent to: posting a message. Every other
-  /// method under the bot's token, such as `chat.delete`, is refused.
-  static final postMessagePath = WebPath.parse('/api/chat.postMessage')!;
-
-  /// A request to exactly [postMessagePath] on [origin], with no query.
+  /// A request to exactly [path] on [origin], with no query.
   @override
   bool admitsAddress(Origin to, WebPath path) =>
-      to == origin && path == postMessagePath;
+      to == origin && path == this.path;
 
-  /// `/api/`, the narrowest prefix covering [postMessagePath]. A redirect
-  /// from Slack could in principle move a POST to another method under
-  /// `/api/`; that is the server's choice, never the reply's.
+  /// The prefix ending at [path]'s last `/`, such as `/api/` for
+  /// `/api/chat.postMessage`.
   @override
-  PathPrefix get redirectsStayUnder => _api;
+  PathPrefix get redirectsStayUnder => PathPrefix.parse(
+    path.value.substring(0, path.value.lastIndexOf('/') + 1),
+  )!;
 
-  static final _api = PathPrefix.parse('/api/')!;
+  /// Whether a request sent as [contentType] with [body] carries this
+  /// endpoint's conversation and no other: [contentType] is
+  /// `application/json`, with at most a `charset=utf-8` parameter, and
+  /// [body] is one JSON object, read refusing a repeated key, holding every
+  /// field of [pinned] as exactly its string. Any other field may be there,
+  /// since the reply itself is in the body too. A form-encoded body is
+  /// refused: a service may read the conversation from it in ways this
+  /// check can't see.
+  bool admitsBody({required String contentType, required String body}) {
+    if (!_isJson(contentType)) return false;
+    final JsonObject object;
+    try {
+      object = JsonObject.decode(body);
+    } on FormatException {
+      return false;
+    }
+    for (final MapEntry(:key, :value) in pinned.fields.entries) {
+      if (object.raw(key) != value) return false;
+    }
+    return true;
+  }
+
+  static bool _isJson(String contentType) {
+    final parts = [for (final p in contentType.split(';')) p.trim()];
+    // wire-ok: a Content-Type header, read once here and never stored.
+    if (parts.first.toLowerCase() != 'application/json') return false;
+    return switch (parts.sublist(1)) {
+      [] => true,
+      // wire-ok: the one parameter a JSON Content-Type may carry.
+      [final charset] => charset.toLowerCase() == 'charset=utf-8',
+      _ => false,
+    };
+  }
 
   @override
-  String toString() => 'RepliesInSlackConversation($origin, $channel, $thread)';
+  String toString() => 'RepliesWithPinnedBodyFields($origin, $path, $pinned)';
 }
 
-/// Replies go to WhatsApp's [chat], sent from the business number that
-/// [phoneNumberId] names, through [origin], as the WhatsApp Cloud API takes
-/// them. Like Slack, it takes every reply from one number at one web
-/// address and names the chat in the request's body, so a reply is
-/// confined to its chat by [chat], never by where it is sent.
-final class RepliesInWhatsAppChat extends ReplyEndpoint {
-  const RepliesInWhatsAppChat({
-    required this.origin,
-    required this.graphApiVersion,
-    required this.phoneNumberId,
-    required this.chat,
-  });
+/// The fields a reply's body must carry to stay in its conversation: one or
+/// more names, each with the exact string it must hold, such as Slack's
+/// `{"channel": "C0123ABC", "thread_ts": "1700000000.000100"}`.
+final class PinnedBodyFields {
+  const PinnedBodyFields._(this.fields);
 
-  /// The site the reply is sent to, such as `https://graph.facebook.com`.
-  @override
-  final Origin origin;
+  /// [fields] as pinned fields; null when there are none or a name is
+  /// empty, since a body need then carry nothing to pass.
+  static PinnedBodyFields? of(Map<String, String> fields) =>
+      fields.isEmpty || fields.keys.any((name) => name.isEmpty)
+      ? null
+      : PinnedBodyFields._(Map.unmodifiable(fields));
 
-  /// The Graph API version the reply's path names, as the module vouches
-  /// for it.
-  final GraphApiVersion graphApiVersion;
-
-  final WhatsAppBusinessPhoneNumberId phoneNumberId;
-
-  final WhatsAppChat chat;
+  /// Each pinned field's name and the string it must hold.
+  final Map<String, String> fields;
 
   @override
   bool operator ==(Object other) =>
-      other is RepliesInWhatsAppChat &&
-      other.origin == origin &&
-      other.graphApiVersion == graphApiVersion &&
-      other.phoneNumberId == phoneNumberId &&
-      other.chat == chat;
+      other is PinnedBodyFields &&
+      other.fields.length == fields.length &&
+      fields.entries.every((e) => other.fields[e.key] == e.value);
 
   @override
-  int get hashCode => Object.hash(origin, graphApiVersion, phoneNumberId, chat);
-
-  /// The one path a reply is sent to, `/<version>/<phoneNumberId>/messages`.
-  /// Its segments are a version and digits, so it always parses.
-  WebPath get messagesPath =>
-      WebPath.parse('/$graphApiVersion/$phoneNumberId/messages')!;
-
-  /// A request to exactly [messagesPath] on [origin], with no query. The
-  /// number's other paths, such as its settings, are refused.
-  @override
-  bool admitsAddress(Origin to, WebPath path) =>
-      to == origin && path == messagesPath;
-
-  /// `/<version>/<phoneNumberId>/`, the narrowest prefix covering
-  /// [messagesPath].
-  @override
-  PathPrefix get redirectsStayUnder =>
-      PathPrefix.parse('/$graphApiVersion/$phoneNumberId/')!;
+  int get hashCode => Object.hashAllUnordered(
+    fields.entries.map((e) => Object.hash(e.key, e.value)),
+  );
 
   @override
-  String toString() =>
-      'RepliesInWhatsAppChat($origin, $graphApiVersion, $phoneNumberId, '
-      '$chat)';
+  String toString() => '$fields';
 }
 
-/// A Slack conversation's id: a public or private channel (`C…`), a direct
-/// message (`D…`) or a group message (`G…`).
-final class SlackChannelId {
-  const SlackChannelId._(this.value);
-
-  /// The id, as Slack writes it.
-  final String value;
-
-  /// [s] as a channel id; null unless it is one.
-  static SlackChannelId? parse(String s) =>
-      _id.hasMatch(s) ? SlackChannelId._(s) : null;
-
-  static final _id = RegExp(r'^[CDG][A-Z0-9]+$');
-
-  @override
-  bool operator ==(Object other) =>
-      other is SlackChannelId && other.value == value;
-
-  @override
-  int get hashCode => value.hashCode;
-
-  @override
-  String toString() => value;
-}
-
-/// The timestamp (`ts`) Slack names a message by, such as
-/// `1700000000.000100`. A thread is named by its root message's timestamp.
-final class SlackMessageTimestamp {
-  const SlackMessageTimestamp._(this.value);
-
-  /// The timestamp, as Slack writes it.
-  final String value;
-
-  /// [s] as a message timestamp; null unless it is one.
-  static SlackMessageTimestamp? parse(String s) =>
-      _ts.hasMatch(s) ? SlackMessageTimestamp._(s) : null;
-
-  static final _ts = RegExp(r'^\d+\.\d+$');
-
-  @override
-  bool operator ==(Object other) =>
-      other is SlackMessageTimestamp && other.value == value;
-
-  @override
-  int get hashCode => value.hashCode;
-
-  @override
-  String toString() => value;
-}
+/// The one path a Slack reply was sent to before 0.2.0, which a logbook's
+/// `in-slack-conversation` case means.
+final _slackPostMessage = WebPath.parse('/api/chat.postMessage')!;
 
 /// [endpoint] as JSON:
 ///
 ///     {"case": "under-web-address", "addressPrefix": <address prefix>}
-///     {"case": "in-slack-conversation", "origin": <origin>,
-///      "channel": <id>, "thread": <ts>?}
-///     {"case": "in-whatsapp-chat", "origin": <origin>,
-///      "graphApiVersion": <version>, "phoneNumberId": <id>,
-///      "chat": {"kind": "individual" | "group", "id": <id>}}
+///     {"case": "with-pinned-body-fields", "origin": <origin>,
+///      "path": <path>, "pinned": {<name>: <string>, ...}}
 ///
 /// `<address prefix>` and `<origin>` are as is_web_address_vocabulary's
 /// `encodeAddressPrefix` and `encodeOrigin` write them.
-JsonObject encodeReplyEndpoint(
-  ReplyEndpoint endpoint,
-) => JsonObject.of(switch (endpoint) {
-  RepliesUnderWebAddress(:final prefix) => {
-    'case': ReplyEndpointCase.underWebAddress.wire,
-    'addressPrefix': encodeAddressPrefix(prefix),
-  },
-  RepliesInSlackConversation(:final origin, :final channel, :final thread) => {
-    'case': ReplyEndpointCase.inSlackConversation.wire,
-    'origin': encodeOrigin(origin),
-    'channel': channel.value,
-    'thread': ?thread?.value,
-  },
-  RepliesInWhatsAppChat(
-    :final origin,
-    :final graphApiVersion,
-    :final phoneNumberId,
-    :final chat,
-  ) =>
-    {
-      'case': ReplyEndpointCase.inWhatsAppChat.wire,
-      'origin': encodeOrigin(origin),
-      'graphApiVersion': graphApiVersion.value,
-      'phoneNumberId': phoneNumberId.value,
-      'chat': encodeWhatsAppChat(chat),
+JsonObject encodeReplyEndpoint(ReplyEndpoint endpoint) => JsonObject.of(
+  switch (endpoint) {
+    RepliesUnderWebAddress(:final prefix) => {
+      'case': ReplyEndpointCase.underWebAddress.wire,
+      'addressPrefix': encodeAddressPrefix(prefix),
     },
-});
+    RepliesWithPinnedBodyFields(:final origin, :final path, :final pinned) => {
+      'case': ReplyEndpointCase.withPinnedBodyFields.wire,
+      'origin': encodeOrigin(origin),
+      'path': path.value,
+      'pinned': encodePinnedBodyFields(pinned),
+    },
+  },
+);
+
+/// [pinned] as a JSON object of its names and strings.
+JsonObject encodePinnedBodyFields(PinnedBodyFields pinned) =>
+    JsonObject.of(pinned.fields);
 
 /// [json] read back as the endpoint [encodeReplyEndpoint] wrote. A
 /// [FormatException] naming [field] for anything it doesn't write: an
 /// unknown case, a field missing, extra or malformed.
+///
+/// A logbook written before 0.2.0 holds Slack's endpoints as
+/// `{"case": "in-slack-conversation", "origin", "channel", "thread"?}`.
+/// Each reads back as the [RepliesWithPinnedBodyFields] it always meant:
+/// `/api/chat.postMessage` on its origin, pinning `channel` and, when it
+/// has one, `thread_ts`.
 ReplyEndpoint decodeReplyEndpoint(Object? json, String field) {
   final object = StrictObjectReader.of(json, field);
   switch (object.kind('a reply endpoint')) {
@@ -300,42 +245,45 @@ ReplyEndpoint decodeReplyEndpoint(Object? json, String field) {
           object.nested('addressPrefix'),
         ),
       );
-    case ReplyEndpointCase.inSlackConversation:
+    case ReplyEndpointCase.withPinnedBodyFields:
+      object.allowOnly(const {'case', 'origin', 'path', 'pinned'});
+      return RepliesWithPinnedBodyFields.at(
+            origin: decodeOrigin(object.raw('origin'), object.nested('origin')),
+            path: object.parsed('path', WebPath.parse, 'a web path'),
+            pinned: decodePinnedBodyFields(
+              object.raw('pinned'),
+              object.nested('pinned'),
+            ),
+          ) ??
+          object.refuse('`path` has a query or is empty');
+    case ReplyEndpointCase.slackConversationAsFirstWritten:
       object.allowOnly(const {'case', 'origin', 'channel', 'thread'});
-      return RepliesInSlackConversation(
-        origin: decodeOrigin(object.raw('origin'), object.nested('origin')),
-        channel: object.parsed(
-          'channel',
-          SlackChannelId.parse,
-          'a Slack channel id',
-        ),
-        thread: object.parsedIfPresent(
-          'thread',
-          SlackMessageTimestamp.parse,
-          'a Slack thread timestamp',
-        ),
+      final channel = object.parsed(
+        'channel',
+        slackChannelIdAsFirstWritten,
+        'a Slack channel id',
       );
-    case ReplyEndpointCase.inWhatsAppChat:
-      object.allowOnly(const {
-        'case',
-        'origin',
-        'graphApiVersion',
-        'phoneNumberId',
-        'chat',
-      });
-      return RepliesInWhatsAppChat(
-        origin: decodeOrigin(object.raw('origin'), object.nested('origin')),
-        graphApiVersion: object.parsed(
-          'graphApiVersion',
-          GraphApiVersion.parse,
-          'a Graph API version',
-        ),
-        phoneNumberId: object.parsed(
-          'phoneNumberId',
-          WhatsAppBusinessPhoneNumberId.parse,
-          'a WhatsApp phone number id',
-        ),
-        chat: decodeWhatsAppChat(object.raw('chat'), object.nested('chat')),
+      final thread = object.parsedIfPresent(
+        'thread',
+        slackTimestampAsFirstWritten,
+        'a Slack thread timestamp',
+      );
+      return RepliesWithPinnedBodyFields._(
+        decodeOrigin(object.raw('origin'), object.nested('origin')),
+        _slackPostMessage,
+        PinnedBodyFields._({'channel': channel, 'thread_ts': ?thread}),
       );
   }
+}
+
+/// [json] read back as the fields [encodePinnedBodyFields] wrote: an
+/// object of one or more non-empty names, each holding a string.
+PinnedBodyFields decodePinnedBodyFields(Object? json, String field) {
+  final object = StrictObjectReader.of(json, field);
+  final fields = <String, String>{
+    for (final name in object.keys)
+      name: object.parsed(name, (s) => s, 'a string'),
+  };
+  return PinnedBodyFields.of(fields) ??
+      object.refuse('no fields, or a field with no name');
 }
