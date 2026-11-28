@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.1
+
+- `AddressInExternalSystem`, an address in an external system such as a
+  Teams chat or a Slack channel, moved here unchanged from
+  is_docking_station_api, since flight rules, the airlock and the docking
+  station all name it.
+- `missionAddress(address:, containingAddress:)`: the address of the
+  mission an address belongs to, the one it sits inside or else itself.
+
 ## 0.2.0
 
 - Breaking: no case of `ReplyEndpoint` or `PostedMessage` names a chat
