@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.0
+
+- Breaking: depends on `checked_json` ^0.4.0, whose `JsonObject` is a
+  class that can't be changed, not an extension type. A package that
+  hands this one a `JsonObject` must be on ^0.4.0 too. No API here
+  changed: every `toJson` still returns a `JsonObject`, now never a
+  `const` one, and the JSON is byte for byte the same.
+
 ## 0.2.0
 
 - Breaking: `ReplyEndpoint` and `PostedMessage` each have a third case,
