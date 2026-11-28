@@ -13,6 +13,7 @@
 /// output until it is sent there.
 library;
 
+export 'src/conversation_kind.dart';
 export 'src/posted_message.dart';
 export 'src/quote.dart';
 export 'src/reply_content.dart';

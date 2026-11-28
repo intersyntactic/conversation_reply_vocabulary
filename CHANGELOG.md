@@ -25,6 +25,12 @@
   reaches `src/whatsapp_chat.dart`: WhatsApp's chat and ids, and their
   strict JSON, with no new package. A guard that pins that library's
   imports by file needs to allow it.
+- `ConversationKind`: what kind of conversation a message came from, in
+  terms no one chat service owns: `oneToOne`, `groupChat`,
+  `publicChannel`, `privateChannel`, or `notKnown` when the module can't
+  tell. `notKnown` is a case, not a null, so whoever decides where an
+  agent may answer has to decide it. Its JSON is `wire`, read back with
+  `parse`.
 
 ## 0.1.1
 

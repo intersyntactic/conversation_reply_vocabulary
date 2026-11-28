@@ -16,7 +16,7 @@ import 'package:is_web_address_vocabulary/is_web_address_vocabulary.dart'
         encodeAddressPrefix,
         encodeOrigin;
 
-import 'conversation_kind.dart';
+import 'reply_endpoint_case.dart';
 import 'strict_object_reader.dart';
 import 'whatsapp_chat.dart';
 
@@ -262,11 +262,11 @@ JsonObject encodeReplyEndpoint(
   ReplyEndpoint endpoint,
 ) => JsonObject.of(switch (endpoint) {
   RepliesUnderWebAddress(:final prefix) => {
-    'case': ConversationKind.underWebAddress.wire,
+    'case': ReplyEndpointCase.underWebAddress.wire,
     'addressPrefix': encodeAddressPrefix(prefix),
   },
   RepliesInSlackConversation(:final origin, :final channel, :final thread) => {
-    'case': ConversationKind.inSlackConversation.wire,
+    'case': ReplyEndpointCase.inSlackConversation.wire,
     'origin': encodeOrigin(origin),
     'channel': channel.value,
     'thread': ?thread?.value,
@@ -278,7 +278,7 @@ JsonObject encodeReplyEndpoint(
     :final chat,
   ) =>
     {
-      'case': ConversationKind.inWhatsAppChat.wire,
+      'case': ReplyEndpointCase.inWhatsAppChat.wire,
       'origin': encodeOrigin(origin),
       'graphApiVersion': graphApiVersion.value,
       'phoneNumberId': phoneNumberId.value,
@@ -292,7 +292,7 @@ JsonObject encodeReplyEndpoint(
 ReplyEndpoint decodeReplyEndpoint(Object? json, String field) {
   final object = StrictObjectReader.of(json, field);
   switch (object.kind('a reply endpoint')) {
-    case ConversationKind.underWebAddress:
+    case ReplyEndpointCase.underWebAddress:
       object.allowOnly(const {'case', 'addressPrefix'});
       return RepliesUnderWebAddress(
         decodeAddressPrefix(
@@ -300,7 +300,7 @@ ReplyEndpoint decodeReplyEndpoint(Object? json, String field) {
           object.nested('addressPrefix'),
         ),
       );
-    case ConversationKind.inSlackConversation:
+    case ReplyEndpointCase.inSlackConversation:
       object.allowOnly(const {'case', 'origin', 'channel', 'thread'});
       return RepliesInSlackConversation(
         origin: decodeOrigin(object.raw('origin'), object.nested('origin')),
@@ -315,7 +315,7 @@ ReplyEndpoint decodeReplyEndpoint(Object? json, String field) {
           'a Slack thread timestamp',
         ),
       );
-    case ConversationKind.inWhatsAppChat:
+    case ReplyEndpointCase.inWhatsAppChat:
       object.allowOnly(const {
         'case',
         'origin',

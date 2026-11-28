@@ -8,7 +8,7 @@ import 'package:checked_json/checked_json.dart' show JsonObject;
 import 'package:is_web_address_vocabulary/is_web_address_vocabulary.dart'
     show AddressPrefix, decodeAddressPrefix, encodeAddressPrefix;
 
-import 'conversation_kind.dart';
+import 'reply_endpoint_case.dart';
 import 'reply_endpoint.dart';
 import 'strict_object_reader.dart';
 import 'whatsapp_chat.dart';
@@ -144,17 +144,17 @@ final class ServerAssignedMessageId {
 JsonObject encodePostedMessage(PostedMessage message) =>
     JsonObject.of(switch (message) {
       PostedUnderWebAddress(:final prefix, :final id) => {
-        'case': ConversationKind.underWebAddress.wire,
+        'case': ReplyEndpointCase.underWebAddress.wire,
         'addressPrefix': encodeAddressPrefix(prefix),
         'id': id.value,
       },
       PostedInSlackConversation(:final channel, :final timestamp) => {
-        'case': ConversationKind.inSlackConversation.wire,
+        'case': ReplyEndpointCase.inSlackConversation.wire,
         'channel': channel.value,
         'timestamp': timestamp.value,
       },
       PostedInWhatsAppChat(:final chat, :final id) => {
-        'case': ConversationKind.inWhatsAppChat.wire,
+        'case': ReplyEndpointCase.inWhatsAppChat.wire,
         'chat': encodeWhatsAppChat(chat),
         'id': id.value,
       },
@@ -166,7 +166,7 @@ JsonObject encodePostedMessage(PostedMessage message) =>
 PostedMessage decodePostedMessage(Object? json, String field) {
   final object = StrictObjectReader.of(json, field);
   switch (object.kind('a posted message')) {
-    case ConversationKind.underWebAddress:
+    case ReplyEndpointCase.underWebAddress:
       object.allowOnly(const {'case', 'addressPrefix', 'id'});
       return PostedUnderWebAddress._(
         decodeAddressPrefix(
@@ -175,7 +175,7 @@ PostedMessage decodePostedMessage(Object? json, String field) {
         ),
         object.parsed('id', ServerAssignedMessageId.parse, 'a message id'),
       );
-    case ConversationKind.inSlackConversation:
+    case ReplyEndpointCase.inSlackConversation:
       object.allowOnly(const {'case', 'channel', 'timestamp'});
       return PostedInSlackConversation._(
         object.parsed('channel', SlackChannelId.parse, 'a Slack channel id'),
@@ -185,7 +185,7 @@ PostedMessage decodePostedMessage(Object? json, String field) {
           'a Slack message timestamp',
         ),
       );
-    case ConversationKind.inWhatsAppChat:
+    case ReplyEndpointCase.inWhatsAppChat:
       object.allowOnly(const {'case', 'chat', 'id'});
       return PostedInWhatsAppChat._(
         decodeWhatsAppChat(object.raw('chat'), object.nested('chat')),
