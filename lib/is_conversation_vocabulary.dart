@@ -11,8 +11,12 @@
 /// `ReplyContent` of `ReplyText`; and the message it posted, a
 /// `PostedMessage`. A reply is never an HTTP response, and never a model's
 /// output until it is sent there.
+///
+/// Where: an `AddressInExternalSystem`, such as a channel or one of its
+/// threads, and `missionAddress`, the address of the mission it belongs to.
 library;
 
+export 'src/address_in_external_system.dart';
 export 'src/conversation_kind.dart';
 export 'src/posted_message.dart';
 export 'src/quote.dart';
