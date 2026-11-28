@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.2.0
+
+- Breaking: `ReplyEndpoint` and `PostedMessage` each have a third case,
+  so a switch over every case needs one more arm.
+- `RepliesInWhatsAppChat`: replies through the WhatsApp Cloud API. It
+  admits exactly `/<graphApiVersion>/<phoneNumberId>/messages` on its
+  origin, with no query, and names its `WhatsAppChat` in the request's
+  body: a `WhatsAppIndividualChat` by `WhatsAppUserPhoneNumber`, or a
+  `WhatsAppGroupChat` by `WhatsAppGroupId`. The Graph API version is a
+  field the module vouches for, not one this package pins.
+- `PostedInWhatsAppChat`: the message such a reply posted, by its chat and
+  the `ServerAssignedMessageId` WhatsApp gave it.
+- JSON case `in-whatsapp-chat` for both. Existing cases' JSON is
+  unchanged.
+
 ## 0.1.1
 
 - New library `package:is_conversation_vocabulary/reply_endpoint.dart`:

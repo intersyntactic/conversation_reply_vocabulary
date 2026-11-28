@@ -7,7 +7,10 @@ enum ConversationKind {
   underWebAddress('under-web-address'),
 
   /// A Slack conversation, named by its channel and thread.
-  inSlackConversation('in-slack-conversation');
+  inSlackConversation('in-slack-conversation'),
+
+  /// A WhatsApp chat, named by the business's number and the chat.
+  inWhatsAppChat('in-whatsapp-chat');
 
   const ConversationKind(this.wire);
 

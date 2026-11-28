@@ -11,9 +11,10 @@ import 'package:is_web_address_vocabulary/is_web_address_vocabulary.dart'
 import 'conversation_kind.dart';
 import 'reply_endpoint.dart';
 import 'strict_object_reader.dart';
+import 'whatsapp_chat.dart';
 
-/// A message a reply posted: [PostedUnderWebAddress] or
-/// [PostedInSlackConversation].
+/// A message a reply posted: [PostedUnderWebAddress],
+/// [PostedInSlackConversation] or [PostedInWhatsAppChat].
 sealed class PostedMessage {
   const PostedMessage();
 }
@@ -76,6 +77,33 @@ final class PostedInSlackConversation extends PostedMessage {
   String toString() => 'PostedInSlackConversation($channel, $timestamp)';
 }
 
+/// A message posted in WhatsApp's [chat] that WhatsApp named [id], the
+/// `messages[0].id` (`wamid.…`) of its response. Made only by [answering]
+/// or [decodePostedMessage], so its chat is the endpoint's.
+final class PostedInWhatsAppChat extends PostedMessage {
+  const PostedInWhatsAppChat._(this.chat, this.id);
+
+  /// The message a reply to [to] posted, which WhatsApp named [id].
+  PostedInWhatsAppChat.answering(
+    RepliesInWhatsAppChat to,
+    ServerAssignedMessageId id,
+  ) : this._(to.chat, id);
+
+  final WhatsAppChat chat;
+
+  final ServerAssignedMessageId id;
+
+  @override
+  bool operator ==(Object other) =>
+      other is PostedInWhatsAppChat && other.chat == chat && other.id == id;
+
+  @override
+  int get hashCode => Object.hash(chat, id);
+
+  @override
+  String toString() => 'PostedInWhatsAppChat($chat, $id)';
+}
+
 /// The id a server gave a message posted to it, such as the `id` in Teams'
 /// Bot Connector's `{"id": "..."}` response. Its form is not documented as
 /// a fixed pattern, so any non-empty string without whitespace is one.
@@ -108,6 +136,7 @@ final class ServerAssignedMessageId {
 ///      "id": <id>}
 ///     {"case": "in-slack-conversation", "channel": <id>,
 ///      "timestamp": <ts>}
+///     {"case": "in-whatsapp-chat", "chat": <chat>, "id": <id>}
 ///
 /// Each case is named as the `ReplyEndpoint` case it answers is.
 /// `<address prefix>` is as is_web_address_vocabulary's
@@ -123,6 +152,11 @@ JsonObject encodePostedMessage(PostedMessage message) =>
         'case': ConversationKind.inSlackConversation.wire,
         'channel': channel.value,
         'timestamp': timestamp.value,
+      },
+      PostedInWhatsAppChat(:final chat, :final id) => {
+        'case': ConversationKind.inWhatsAppChat.wire,
+        'chat': encodeWhatsAppChat(chat),
+        'id': id.value,
       },
     });
 
@@ -150,6 +184,12 @@ PostedMessage decodePostedMessage(Object? json, String field) {
           SlackMessageTimestamp.parse,
           'a Slack message timestamp',
         ),
+      );
+    case ConversationKind.inWhatsAppChat:
+      object.allowOnly(const {'case', 'chat', 'id'});
+      return PostedInWhatsAppChat._(
+        decodeWhatsAppChat(object.raw('chat'), object.nested('chat')),
+        object.parsed('id', ServerAssignedMessageId.parse, 'a message id'),
       );
   }
 }

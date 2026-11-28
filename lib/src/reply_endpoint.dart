@@ -18,9 +18,20 @@ import 'package:is_web_address_vocabulary/is_web_address_vocabulary.dart'
 
 import 'conversation_kind.dart';
 import 'strict_object_reader.dart';
+import 'whatsapp_chat.dart';
 
-/// Where replies to an event go: [RepliesUnderWebAddress] or
-/// [RepliesInSlackConversation].
+export 'whatsapp_chat.dart'
+    show
+        GraphApiVersion,
+        WhatsAppBusinessPhoneNumberId,
+        WhatsAppChat,
+        WhatsAppGroupChat,
+        WhatsAppGroupId,
+        WhatsAppIndividualChat,
+        WhatsAppUserPhoneNumber;
+
+/// Where replies to an event go: [RepliesUnderWebAddress],
+/// [RepliesInSlackConversation] or [RepliesInWhatsAppChat].
 sealed class ReplyEndpoint {
   const ReplyEndpoint();
 
@@ -119,6 +130,64 @@ final class RepliesInSlackConversation extends ReplyEndpoint {
   String toString() => 'RepliesInSlackConversation($origin, $channel, $thread)';
 }
 
+/// Replies go to WhatsApp's [chat], sent from the business number that
+/// [phoneNumberId] names, through [origin], as the WhatsApp Cloud API takes
+/// them. Like Slack, it takes every reply from one number at one web
+/// address and names the chat in the request's body, so a reply is
+/// confined to its chat by [chat], never by where it is sent.
+final class RepliesInWhatsAppChat extends ReplyEndpoint {
+  const RepliesInWhatsAppChat({
+    required this.origin,
+    required this.graphApiVersion,
+    required this.phoneNumberId,
+    required this.chat,
+  });
+
+  /// The site the reply is sent to, such as `https://graph.facebook.com`.
+  final Origin origin;
+
+  /// The Graph API version the reply's path names, as the module vouches
+  /// for it.
+  final GraphApiVersion graphApiVersion;
+
+  final WhatsAppBusinessPhoneNumberId phoneNumberId;
+
+  final WhatsAppChat chat;
+
+  @override
+  bool operator ==(Object other) =>
+      other is RepliesInWhatsAppChat &&
+      other.origin == origin &&
+      other.graphApiVersion == graphApiVersion &&
+      other.phoneNumberId == phoneNumberId &&
+      other.chat == chat;
+
+  @override
+  int get hashCode => Object.hash(origin, graphApiVersion, phoneNumberId, chat);
+
+  /// The one path a reply is sent to, `/<version>/<phoneNumberId>/messages`.
+  /// Its segments are a version and digits, so it always parses.
+  WebPath get messagesPath =>
+      WebPath.parse('/$graphApiVersion/$phoneNumberId/messages')!;
+
+  /// A request to exactly [messagesPath] on [origin], with no query. The
+  /// number's other paths, such as its settings, are refused.
+  @override
+  bool admitsAddress(Origin to, WebPath path) =>
+      to == origin && path == messagesPath;
+
+  /// `/<version>/<phoneNumberId>/`, the narrowest prefix covering
+  /// [messagesPath].
+  @override
+  PathPrefix get redirectsStayUnder =>
+      PathPrefix.parse('/$graphApiVersion/$phoneNumberId/')!;
+
+  @override
+  String toString() =>
+      'RepliesInWhatsAppChat($origin, $graphApiVersion, $phoneNumberId, '
+      '$chat)';
+}
+
 /// A Slack conversation's id: a public or private channel (`C…`), a direct
 /// message (`D…`) or a group message (`G…`).
 final class SlackChannelId {
@@ -174,6 +243,9 @@ final class SlackMessageTimestamp {
 ///     {"case": "under-web-address", "addressPrefix": <address prefix>}
 ///     {"case": "in-slack-conversation", "origin": <origin>,
 ///      "channel": <id>, "thread": <ts>?}
+///     {"case": "in-whatsapp-chat", "origin": <origin>,
+///      "graphApiVersion": <version>, "phoneNumberId": <id>,
+///      "chat": {"kind": "individual" | "group", "id": <id>}}
 ///
 /// `<address prefix>` and `<origin>` are as is_web_address_vocabulary's
 /// `encodeAddressPrefix` and `encodeOrigin` write them.
@@ -190,6 +262,19 @@ JsonObject encodeReplyEndpoint(
     'channel': channel.value,
     'thread': ?thread?.value,
   },
+  RepliesInWhatsAppChat(
+    :final origin,
+    :final graphApiVersion,
+    :final phoneNumberId,
+    :final chat,
+  ) =>
+    {
+      'case': ConversationKind.inWhatsAppChat.wire,
+      'origin': encodeOrigin(origin),
+      'graphApiVersion': graphApiVersion.value,
+      'phoneNumberId': phoneNumberId.value,
+      'chat': encodeWhatsAppChat(chat),
+    },
 });
 
 /// [json] read back as the endpoint [encodeReplyEndpoint] wrote. A
@@ -220,6 +305,28 @@ ReplyEndpoint decodeReplyEndpoint(Object? json, String field) {
           SlackMessageTimestamp.parse,
           'a Slack thread timestamp',
         ),
+      );
+    case ConversationKind.inWhatsAppChat:
+      object.allowOnly(const {
+        'case',
+        'origin',
+        'graphApiVersion',
+        'phoneNumberId',
+        'chat',
+      });
+      return RepliesInWhatsAppChat(
+        origin: decodeOrigin(object.raw('origin'), object.nested('origin')),
+        graphApiVersion: object.parsed(
+          'graphApiVersion',
+          GraphApiVersion.parse,
+          'a Graph API version',
+        ),
+        phoneNumberId: object.parsed(
+          'phoneNumberId',
+          WhatsAppBusinessPhoneNumberId.parse,
+          'a WhatsApp phone number id',
+        ),
+        chat: decodeWhatsAppChat(object.raw('chat'), object.nested('chat')),
       );
   }
 }
