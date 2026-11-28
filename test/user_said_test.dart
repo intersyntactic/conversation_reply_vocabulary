@@ -106,7 +106,7 @@ void main() {
     test('refuses an unknown shape', () {
       expect(
         () => UserSaid.fromJson(
-          const JsonObject.of({
+          JsonObject.of({
             'shape': 'SomethingElse',
             'author': 'teams:a',
             'source': 's',
@@ -120,7 +120,7 @@ void main() {
     test('refuses a missing field', () {
       expect(
         () => UserSaid.fromJson(
-          const JsonObject.of({
+          JsonObject.of({
             'shape': 'UserSaid',
             'author': 'teams:a',
             'source': 's',
@@ -133,7 +133,7 @@ void main() {
     test('refuses an extra field', () {
       expect(
         () => UserSaid.fromJson(
-          const JsonObject.of({
+          JsonObject.of({
             'shape': 'UserSaid',
             'author': 'teams:a',
             'source': 's',
@@ -148,7 +148,7 @@ void main() {
     test('refuses an extra field inside a quote and its author', () {
       expect(
         () => UserSaid.fromJson(
-          const JsonObject.of({
+          JsonObject.of({
             'shape': 'UserSaid',
             'author': 'teams:a',
             'source': 's',
@@ -164,7 +164,7 @@ void main() {
       );
       expect(
         () => UserSaid.fromJson(
-          const JsonObject.of({
+          JsonObject.of({
             'shape': 'UserSaid',
             'author': 'teams:a',
             'source': 's',
@@ -182,7 +182,7 @@ void main() {
     test('refuses a malformed actor id', () {
       expect(
         () => UserSaid.fromJson(
-          const JsonObject.of({
+          JsonObject.of({
             'shape': 'UserSaid',
             'author': 'not an id',
             'source': 's',
@@ -196,7 +196,7 @@ void main() {
     test('refuses a malformed source message id', () {
       expect(
         () => UserSaid.fromJson(
-          const JsonObject.of({
+          JsonObject.of({
             'shape': 'UserSaid',
             'author': 'teams:a',
             'source': 'has space',

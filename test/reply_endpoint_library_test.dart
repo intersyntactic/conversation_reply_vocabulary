@@ -56,7 +56,7 @@ void main() {
     expect(reached.files, {
       'reply_endpoint.dart',
       'src/reply_endpoint.dart',
-      'src/conversation_kind.dart',
+      'src/reply_endpoint_case.dart',
       'src/strict_object_reader.dart',
     });
     expect(reached.packages, {

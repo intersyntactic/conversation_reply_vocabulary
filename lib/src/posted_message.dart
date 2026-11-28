@@ -8,12 +8,12 @@ import 'package:checked_json/checked_json.dart' show JsonObject;
 import 'package:is_web_address_vocabulary/is_web_address_vocabulary.dart'
     show AddressPrefix, decodeAddressPrefix, encodeAddressPrefix;
 
-import 'conversation_kind.dart';
 import 'reply_endpoint.dart';
+import 'reply_endpoint_case.dart';
 import 'strict_object_reader.dart';
 
 /// A message a reply posted: [PostedUnderWebAddress] or
-/// [PostedInSlackConversation].
+/// [PostedWithPinnedBodyFields].
 sealed class PostedMessage {
   const PostedMessage();
 }
@@ -47,33 +47,35 @@ final class PostedUnderWebAddress extends PostedMessage {
   String toString() => 'PostedUnderWebAddress($prefix, $id)';
 }
 
-/// A message posted in Slack's [channel] that Slack named [timestamp]; a
-/// later reply can go in the thread it names. Made only by [answering] or
-/// [decodePostedMessage], so its channel is the endpoint's.
-final class PostedInSlackConversation extends PostedMessage {
-  const PostedInSlackConversation._(this.channel, this.timestamp);
+/// A message posted in the conversation [pinned] names, which the service
+/// named [id], such as a Slack message's `ts` or a WhatsApp message's
+/// `wamid.…`. The module that sent it reads [id] back into its own type.
+/// Made only by [answering] or [decodePostedMessage], so its conversation
+/// is the endpoint's.
+final class PostedWithPinnedBodyFields extends PostedMessage {
+  const PostedWithPinnedBodyFields._(this.pinned, this.id);
 
-  /// The message a reply to [to] posted, which Slack named [timestamp].
-  PostedInSlackConversation.answering(
-    RepliesInSlackConversation to,
-    SlackMessageTimestamp timestamp,
-  ) : this._(to.channel, timestamp);
+  /// The message a reply to [to] posted, which the service named [id].
+  PostedWithPinnedBodyFields.answering(
+    RepliesWithPinnedBodyFields to,
+    ServerAssignedMessageId id,
+  ) : this._(to.pinned, id);
 
-  final SlackChannelId channel;
+  final PinnedBodyFields pinned;
 
-  final SlackMessageTimestamp timestamp;
+  final ServerAssignedMessageId id;
 
   @override
   bool operator ==(Object other) =>
-      other is PostedInSlackConversation &&
-      other.channel == channel &&
-      other.timestamp == timestamp;
+      other is PostedWithPinnedBodyFields &&
+      other.pinned == pinned &&
+      other.id == id;
 
   @override
-  int get hashCode => Object.hash(channel, timestamp);
+  int get hashCode => Object.hash(pinned, id);
 
   @override
-  String toString() => 'PostedInSlackConversation($channel, $timestamp)';
+  String toString() => 'PostedWithPinnedBodyFields($pinned, $id)';
 }
 
 /// The id a server gave a message posted to it, such as the `id` in Teams'
@@ -106,8 +108,8 @@ final class ServerAssignedMessageId {
 ///
 ///     {"case": "under-web-address", "addressPrefix": <address prefix>,
 ///      "id": <id>}
-///     {"case": "in-slack-conversation", "channel": <id>,
-///      "timestamp": <ts>}
+///     {"case": "with-pinned-body-fields", "pinned": {<name>: <string>},
+///      "id": <id>}
 ///
 /// Each case is named as the `ReplyEndpoint` case it answers is.
 /// `<address prefix>` is as is_web_address_vocabulary's
@@ -115,24 +117,29 @@ final class ServerAssignedMessageId {
 JsonObject encodePostedMessage(PostedMessage message) =>
     JsonObject.of(switch (message) {
       PostedUnderWebAddress(:final prefix, :final id) => {
-        'case': ConversationKind.underWebAddress.wire,
+        'case': ReplyEndpointCase.underWebAddress.wire,
         'addressPrefix': encodeAddressPrefix(prefix),
         'id': id.value,
       },
-      PostedInSlackConversation(:final channel, :final timestamp) => {
-        'case': ConversationKind.inSlackConversation.wire,
-        'channel': channel.value,
-        'timestamp': timestamp.value,
+      PostedWithPinnedBodyFields(:final pinned, :final id) => {
+        'case': ReplyEndpointCase.withPinnedBodyFields.wire,
+        'pinned': encodePinnedBodyFields(pinned),
+        'id': id.value,
       },
     });
 
 /// [json] read back as the message [encodePostedMessage] wrote. A
 /// [FormatException] naming [field] for anything it doesn't write: an
 /// unknown case, a field missing, extra or malformed.
+///
+/// A logbook written before 0.2.0 holds Slack's posted messages as
+/// `{"case": "in-slack-conversation", "channel", "timestamp"}`. Each reads
+/// back as a [PostedWithPinnedBodyFields] pinning `channel`, whose id is
+/// the timestamp.
 PostedMessage decodePostedMessage(Object? json, String field) {
   final object = StrictObjectReader.of(json, field);
   switch (object.kind('a posted message')) {
-    case ConversationKind.underWebAddress:
+    case ReplyEndpointCase.underWebAddress:
       object.allowOnly(const {'case', 'addressPrefix', 'id'});
       return PostedUnderWebAddress._(
         decodeAddressPrefix(
@@ -141,13 +148,27 @@ PostedMessage decodePostedMessage(Object? json, String field) {
         ),
         object.parsed('id', ServerAssignedMessageId.parse, 'a message id'),
       );
-    case ConversationKind.inSlackConversation:
+    case ReplyEndpointCase.withPinnedBodyFields:
+      object.allowOnly(const {'case', 'pinned', 'id'});
+      return PostedWithPinnedBodyFields._(
+        decodePinnedBodyFields(object.raw('pinned'), object.nested('pinned')),
+        object.parsed('id', ServerAssignedMessageId.parse, 'a message id'),
+      );
+    case ReplyEndpointCase.slackConversationAsFirstWritten:
       object.allowOnly(const {'case', 'channel', 'timestamp'});
-      return PostedInSlackConversation._(
-        object.parsed('channel', SlackChannelId.parse, 'a Slack channel id'),
+      final channel = object.parsed(
+        'channel',
+        slackChannelIdAsFirstWritten,
+        'a Slack channel id',
+      );
+      return PostedWithPinnedBodyFields._(
+        PinnedBodyFields.of({'channel': channel})!,
         object.parsed(
           'timestamp',
-          SlackMessageTimestamp.parse,
+          (s) => switch (slackTimestampAsFirstWritten(s)) {
+            final ts? => ServerAssignedMessageId.parse(ts),
+            null => null,
+          },
           'a Slack message timestamp',
         ),
       );

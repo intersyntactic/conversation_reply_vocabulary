@@ -68,7 +68,7 @@ void main() {
 
   test('refuses an unknown shape', () {
     expect(
-      () => WhatChanged.fromJson(const JsonObject.of({'shape': 'Archived'})),
+      () => WhatChanged.fromJson(JsonObject.of({'shape': 'Archived'})),
       throwsFormatException,
     );
   });
@@ -76,7 +76,7 @@ void main() {
   test('refuses an extra field on Deleted', () {
     expect(
       () => WhatChanged.fromJson(
-        const JsonObject.of({'shape': 'Deleted', 'text': 'should not be here'}),
+        JsonObject.of({'shape': 'Deleted', 'text': 'should not be here'}),
       ),
       throwsFormatException,
     );
@@ -84,7 +84,7 @@ void main() {
 
   test('refuses a missing field on Edited', () {
     expect(
-      () => WhatChanged.fromJson(const JsonObject.of({'shape': 'Edited'})),
+      () => WhatChanged.fromJson(JsonObject.of({'shape': 'Edited'})),
       throwsA(isA<JsonFieldException>()),
     );
   });

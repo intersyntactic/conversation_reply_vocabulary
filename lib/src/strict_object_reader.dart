@@ -4,7 +4,7 @@ library;
 
 import 'package:checked_json/checked_json.dart';
 
-import 'conversation_kind.dart';
+import 'reply_endpoint_case.dart';
 
 /// [_json], the object found at [_field], read so that anything the
 /// encoder doesn't write is refused, naming [_field].
@@ -24,6 +24,12 @@ final class StrictObjectReader {
   /// The name of the nested field [key], for a decoder that reads it.
   String nested(String key) => '$_field.$key';
 
+  /// Whether the object has a field [key], even one holding null.
+  bool has(String key) => _json.has(key);
+
+  /// The object's field names, for a decoder whose fields are not fixed.
+  Iterable<String> get keys => _json.keys;
+
   /// The field [key] as it was decoded, for a decoder that reads it.
   Object? raw(String key) => _json.raw(key);
 
@@ -37,9 +43,9 @@ final class StrictObjectReader {
     }
   }
 
-  /// The `case` field as a [ConversationKind], refused as not [what].
-  ConversationKind kind(String what) =>
-      ConversationKind.parse(_json.raw('case')) ??
+  /// The `case` field as a [ReplyEndpointCase], refused as not [what].
+  ReplyEndpointCase kind(String what) =>
+      ReplyEndpointCase.parse(_json.raw('case')) ??
       refuse('`case` is not $what: ${_json.raw('case')}');
 
   /// The string field [key] read by [parse], refused as not [what] when it

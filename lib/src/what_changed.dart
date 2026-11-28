@@ -85,7 +85,7 @@ final class Deleted extends WhatChanged {
   static const String shapeName = 'Deleted';
 
   @override
-  JsonObject toJson() => const JsonObject.of({'shape': shapeName});
+  JsonObject toJson() => JsonObject.of({'shape': shapeName});
 }
 
 /// A deleted message was restored.
@@ -100,5 +100,5 @@ final class Restored extends WhatChanged {
   static const String shapeName = 'Restored';
 
   @override
-  JsonObject toJson() => const JsonObject.of({'shape': shapeName});
+  JsonObject toJson() => JsonObject.of({'shape': shapeName});
 }

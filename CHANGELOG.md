@@ -1,5 +1,58 @@
 # Changelog
 
+## 0.2.0
+
+- Breaking: no case of `ReplyEndpoint` or `PostedMessage` names a chat
+  service. There are two ways a reply is kept to its conversation, and one
+  case for each:
+  - `RepliesUnderWebAddress`, unchanged: by the web address it is sent to,
+    as Teams takes replies.
+  - `RepliesWithPinnedBodyFields`, replacing `RepliesInSlackConversation`:
+    by fields its body must carry. It admits exactly one `path` on its
+    `origin`, with no query, and `admitsBody` passes a request only when it
+    is sent as `application/json` (at most `charset=utf-8`) and its body,
+    read refusing a repeated key, holds every field of its
+    `PinnedBodyFields.mustEqual` as exactly that string, and other fields
+    only as its `OtherBodyFields` allow: `AnyOtherFieldsExcept` names
+    fields that must be absent (`PinnedBodyFields.of(…, mustBeAbsent:)`),
+    such as `thread_ts` for a reply at a channel's top level or a second
+    field a service would also read a recipient from;
+    `OnlyTheseOtherFields` allows no field it doesn't name
+    (`PinnedBodyFields.allowingOnly(…, otherFields:)`), so one a service
+    adds later, or one such as Slack's `reply_broadcast` that reaches past
+    the pin, can't get through. Slack pins `channel` and
+    `thread_ts` at `/api/chat.postMessage`; WhatsApp pins
+    `messaging_product`, `recipient_type` and `to` at
+    `/<version>/<number id>/messages`. A form-encoded body or a query is
+    refused, since a service may read the conversation from either.
+  - `PostedWithPinnedBodyFields { pinned, id }`, replacing
+    `PostedInSlackConversation`. `id` is a `ServerAssignedMessageId`,
+    which the sending module reads back into its own type.
+- `SlackChannelId` and `SlackMessageTimestamp` are gone: a module keeps
+  its service's ids on its own side.
+- A logbook written before 0.2.0 still reads: each
+  `"case": "in-slack-conversation"` endpoint or posted message decodes as
+  the pinned case it meant (`/api/chat.postMessage`, pinning `channel`, and
+  `thread_ts` when there was one or as absent when there wasn't). Only the new cases are written.
+- `ReplyEndpoint.origin`: the site every case's replies are sent to, so
+  code that needs only the site needn't switch over the cases.
+- `ConversationKind`: what kind of conversation a message came from, in
+  terms no one chat service owns: `oneToOne`, `groupChat`,
+  `publicChannel`, `privateChannel`, or `notKnown` when the module can't
+  tell. `notKnown` is a case, not a null, so whoever decides where an
+  agent may answer has to decide it. Its JSON is `wire`, read back with
+  `parse`.
+- Breaking: depends on `checked_json` ^0.4.0, whose `JsonObject` is a
+  class that can't be changed, not an extension type. A package that
+  hands this one a `JsonObject` must be on ^0.4.0 too. Every `toJson`
+  still returns a `JsonObject`, now never a `const` one, and the JSON is
+  byte for byte the same.
+- `package:is_conversation_vocabulary/reply_endpoint.dart` reaches
+  `src/reply_endpoint_case.dart` where it reached
+  `src/conversation_kind.dart`: the same internal enum of JSON cases,
+  renamed `ReplyEndpointCase`. A guard that pins that library's imports by
+  file needs the new name. No new package is reached.
+
 ## 0.1.1
 
 - New library `package:is_conversation_vocabulary/reply_endpoint.dart`:
