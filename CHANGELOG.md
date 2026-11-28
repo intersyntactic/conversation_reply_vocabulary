@@ -23,8 +23,10 @@
   unchanged.
 - `package:is_conversation_vocabulary/reply_endpoint.dart` now also
   reaches `src/whatsapp_chat.dart`: WhatsApp's chat and ids, and their
-  strict JSON, with no new package. A guard that pins that library's
-  imports by file needs to allow it.
+  strict JSON, with no new package. Its `src/conversation_kind.dart` is
+  now `src/reply_endpoint_case.dart`, the same enum of JSON cases
+  renamed. A guard that pins that library's imports by file needs both
+  changes.
 - `ConversationKind`: what kind of conversation a message came from, in
   terms no one chat service owns: `oneToOne`, `groupChat`,
   `publicChannel`, `privateChannel`, or `notKnown` when the module can't
